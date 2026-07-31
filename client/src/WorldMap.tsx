@@ -10,12 +10,20 @@ const FACTION_COLORS = {
   khan: '#8a7a5a',
 };
 
+const NODE_STYLES = {
+  gold: { color: '#f0c040', label: 'G' },
+  food: { color: '#6a9a5a', label: 'F' },
+  wood: { color: '#9a7a4a', label: 'W' },
+};
+
 export default function WorldMap({ room }) {
   const canvasRef = useRef(null);
   const [players, setPlayers] = useState(new Map());
+  const [nodes, setNodes] = useState(new Map());
   const [myId, setMyId] = useState('');
   const [playerCount, setPlayerCount] = useState(0);
   const playersRef = useRef(new Map());
+  const nodesRef = useRef(new Map());
 
   // Read players from room state, generically (works for MapSchema or plain object)
   const syncPlayers = () => {
@@ -33,6 +41,10 @@ export default function WorldMap({ room }) {
         x: p.x ?? 0,
         y: p.y ?? 0,
         isMoving: p.isMoving ?? false,
+        gold: p.gold ?? 0,
+        food: p.food ?? 0,
+        wood: p.wood ?? 0,
+        gatheringNodeId: p.gatheringNodeId ?? '',
       });
     };
 
@@ -47,6 +59,25 @@ export default function WorldMap({ room }) {
     playersRef.current = newMap;
     setPlayers(newMap);
     setPlayerCount(newMap.size);
+
+    // Sync resource nodes
+    const s2 = room?.state;
+    if (s2?.nodes) {
+      const newNodeMap = new Map();
+      const ns = s2.nodes;
+      const addNode = (k, n) => newNodeMap.set(k, {
+        id: n.id ?? k,
+        type: n.type ?? 'gold',
+        x: n.x ?? 0,
+        y: n.y ?? 0,
+        amount: n.amount ?? 0,
+      });
+      if (ns instanceof Map) ns.forEach((n, k) => addNode(k, n));
+      else if (ns.forEach) ns.forEach((n, k) => addNode(k, n));
+      else Object.entries(ns).forEach(([k, n]) => addNode(k, n));
+      nodesRef.current = newNodeMap;
+      setNodes(newNodeMap);
+    }
   };
 
   useEffect(() => {
@@ -91,6 +122,27 @@ export default function WorldMap({ room }) {
         ctx.lineTo(MAP_SIZE, i);
         ctx.stroke();
       }
+
+      // Resource nodes
+      nodesRef.current.forEach((n) => {
+        const style = NODE_STYLES[n.type] || NODE_STYLES.gold;
+        ctx.fillStyle = style.color;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = '#111';
+        ctx.font = 'bold 8px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(style.label, n.x, n.y + 0.5);
+        ctx.fillStyle = 'rgba(224,221,213,0.75)';
+        ctx.font = '9px sans-serif';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(Math.round(n.amount), n.x, n.y - 11);
+      });
 
       // Center monument (The Crown)
       ctx.fillStyle = '#1a1a1e';
@@ -160,6 +212,14 @@ export default function WorldMap({ room }) {
             {myPlayer?.faction?.toUpperCase() || '---'}
           </span>
           <span className="hud-name">{myPlayer?.name || 'Unknown'}</span>
+          {myPlayer && (
+            <span className="hud-resources">
+              <span className="res gold">🪙 {Math.round(myPlayer.gold)}</span>
+              <span className="res food">🌾 {Math.round(myPlayer.food)}</span>
+              <span className="res wood">🪵 {Math.round(myPlayer.wood)}</span>
+              {myPlayer.gatheringNodeId && <span className="res gathering">⛏ gathering</span>}
+            </span>
+          )}
         </div>
         <div className="hud-center">
           <span className="hud-online">● {playerCount} ruler{playerCount !== 1 ? 's' : ''} online</span>

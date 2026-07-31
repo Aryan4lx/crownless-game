@@ -28,6 +28,28 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hud-resources {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left: 1px solid #2a2a2e;
+}
+
+.res {
+  font-size: 12px;
+  color: #c9c4ba;
+  white-space: nowrap;
+}
+
+.res.gold { color: #f0c040; }
+.res.food { color: #8ab87a; }
+.res.wood { color: #b89a6a; }
+.res.gathering { color: #7ec8e3; font-style: italic; }
 }
 
 .hud-faction {

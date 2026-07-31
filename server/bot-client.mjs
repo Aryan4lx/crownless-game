@@ -1,4 +1,4 @@
-// Second-player test client — foreground run, full connection logging
+// Second-player test client — joins, marches to a resource node, dumps state
 import { Client } from 'colyseus.js';
 
 const client = new Client('ws://[::1]:2567');
@@ -9,31 +9,38 @@ try {
   const room = await client.joinOrCreate('world', { name: 'BotKhan', faction: 'khan' });
   console.log(ts(), 'BOT JOINED:', room.sessionId);
 
-  room.onLeave((code) => console.log(ts(), 'ROOM ONLEAVE code=', code));
-  room.onError((code, msg) => console.log(ts(), 'ROOM ONERROR code=', code, 'msg=', msg));
-
-  // Hook raw socket close
-  if (room.connection && room.connection.ws) {
-    const ws = room.connection.ws;
-    ws.onclose = (e) => console.log(ts(), 'WS CLOSE code=', e.code, 'reason=', e.reason);
-  }
-
   setInterval(() => {
-    try {
-      const s = room.state;
-      const names = [];
-      const ps = s?.players;
-      if (ps?.forEach) ps.forEach((p, k) => names.push(`${k}:${p?.name}`));
-      else if (ps) Object.entries(ps).forEach(([k, p]) => names.push(`${k}:${p?.name}`));
-      console.log(ts(), 'STATE:', names.join(' | ') || '(empty)');
-    } catch (e) {
-      console.log(ts(), 'STATE READ FAILED:', e.message);
-    }
+    const s = room.state;
+    const ps = s?.players;
+    let me = null;
+    if (ps?.get) me = ps.get(room.sessionId);
+    else if (ps?.forEach) ps.forEach((p, k) => { if (k === room.sessionId) me = p; });
+
+    let meInfo = me
+      ? `${me.name} gold=${Math.round(me.gold)} food=${Math.round(me.food)} wood=${Math.round(me.wood)} gather=${me.gatheringNodeId || '-'} moving=${me.isMoving} @${Math.round(me.x)},${Math.round(me.y)}`
+      : 'NO-ME';
+
+    let nodeInfo = '';
+    const ns = s?.nodes;
+    const firstThree = [];
+    if (ns?.forEach) ns.forEach((n) => { if (firstThree.length < 3) firstThree.push(`${n.id}:${n.type}:${Math.round(n.amount)}`); });
+    nodeInfo = firstThree.join(' ');
+
+    console.log(ts(), 'ME:', meInfo, '| NODES:', nodeInfo);
   }, 2000);
 
+  // March to the first node after 3s
   setTimeout(() => {
-    room.send('move', { x: 700, y: 300 });
-    console.log(ts(), 'BOT MOVED to 700,300');
+    const s = room.state;
+    const ns = s?.nodes;
+    let target = null;
+    if (ns?.forEach) ns.forEach((n) => { if (!target) target = n; });
+    if (target) {
+      room.send('move', { x: target.x, y: target.y });
+      console.log(ts(), `BOT MARCHES to ${target.id} (${target.type}) at ${Math.round(target.x)},${Math.round(target.y)}`);
+    } else {
+      console.log(ts(), 'NO NODES IN STATE');
+    }
   }, 3000);
 
   setTimeout(async () => {
