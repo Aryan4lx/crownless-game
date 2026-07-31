@@ -1,13 +1,14 @@
 import { Component } from 'react';
 
-export default class ErrorBoundary extends Component {
-  state = { error: null, info: null };
+export default class ErrorBoundary extends Component<{ children: React.ReactNode }, { error: Error | null; info: any }> {
+  state = { error: null as Error | null, info: null as any };
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError(error: Error) {
     return { error };
   }
 
-  componentDidCatch(error, info) {
+  componentDidCatch(error: Error, info: any) {
+    void error;
     this.setState({ info });
   }
 

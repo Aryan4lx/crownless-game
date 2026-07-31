@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { sendMove, sendStop, sendBuild, sendAttack, leaveWorld } from './network';
+import { sendMove, sendBuild, sendAttack, sendResearch, leaveWorld } from './network';
 import './WorldMap.css';
 
 const MAP_SIZE = 1024;
@@ -28,19 +28,19 @@ const LEVEL_FIELD: Record<string, string> = {
   mine: 'mineLvl',
 };
 
-const costFor = (b, level) => ({
+const costFor = (b: { gold: number; wood: number }, level: number) => ({
   gold: Math.round(b.gold * (level + 1)),
   wood: Math.round(b.wood * (level + 1)),
 });
 
 // ── Deterministic value noise (same terrain on every client) ────────
-function hash2(x, y, seed) {
+function hash2(x: number, y: number, seed: number): number {
   let h = seed + x * 374761393 + y * 668265263;
   h = (h ^ (h >> 13)) * 1274126177;
   return ((h ^ (h >> 16)) >>> 0) / 4294967295;
 }
 
-function smoothNoise(x, y, seed) {
+function smoothNoise(x: number, y: number, seed: number): number {
   const xi = Math.floor(x), yi = Math.floor(y);
   const xf = x - xi, yf = y - yi;
   const a = hash2(xi, yi, seed), b = hash2(xi + 1, yi, seed);
@@ -49,7 +49,7 @@ function smoothNoise(x, y, seed) {
   return a + (b - a) * ux + (c - a) * uy + (a - b - c + d) * ux * uy;
 }
 
-function fbm(x, y, seed, octaves = 3) {
+function fbm(x: number, y: number, seed: number, octaves = 3): number {
   let v = 0, amp = 0.5, freq = 1, norm = 0;
   for (let i = 0; i < octaves; i++) {
     v += amp * smoothNoise(x * freq, y * freq, seed + i * 101);
@@ -61,7 +61,7 @@ function fbm(x, y, seed, octaves = 3) {
 }
 
 // ── Procedural castle sprite ────────────────────────────────────────
-function drawCastle(ctx, x, y, color, isMe) {
+function drawCastle(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, isMe: boolean) {
   const s = isMe ? 1.15 : 1;
   ctx.save();
   ctx.translate(x, y);
@@ -125,7 +125,7 @@ function drawCastle(ctx, x, y, color, isMe) {
   ctx.restore();
 }
 
-function shade(hex, amt) {
+function shade(hex: string, amt: number) {
   const n = parseInt(hex.slice(1), 16);
   const r = Math.max(0, Math.min(255, (n >> 16) + amt));
   const g = Math.max(0, Math.min(255, ((n >> 8) & 0xff) + amt));
@@ -134,7 +134,7 @@ function shade(hex, amt) {
 }
 
 // ── Procedural node icons ───────────────────────────────────────────
-function drawNode(ctx, x, y, type, amount) {
+function drawNode(ctx: CanvasRenderingContext2D, x: number, y: number, type: string, amount: number) {
   ctx.save();
   ctx.translate(x, y);
 
@@ -209,13 +209,13 @@ function buildTerrain() {
   const c = document.createElement('canvas');
   c.width = MAP_SIZE;
   c.height = MAP_SIZE;
-  const ctx = c.getContext('2d');
+  const ctx = c.getContext('2d') as CanvasRenderingContext2D;
 
   // low-res noise field, scaled up for soft patches
   const small = document.createElement('canvas');
   small.width = 256;
   small.height = 256;
-  const sctx = small.getContext('2d');
+  const sctx = small.getContext('2d') as CanvasRenderingContext2D;
   const img = sctx.createImageData(256, 256);
   for (let y = 0; y < 256; y++) {
     for (let x = 0; x < 256; x++) {
@@ -303,11 +303,20 @@ function buildTerrain() {
   return c;
 }
 
-export default function WorldMap({ room }) {
-  const canvasRef = useRef(null);
-  const terrainRef = useRef(null);
+interface PlayerState {
+  name: string; faction: string; x: number; y: number;
+  tx: number; ty: number; isMoving: boolean; castleLvl: number;
+  gold: number; food: number; wood: number; gatheringNodeId: string;
+  barracksLvl: number; smithyLvl: number; farmLvl: number; mineLvl: number; army: number;
+}
+interface NodeState { id: string; type: string; x: number; y: number; amount: number; }
+
+export default function WorldMap({ room }: { room: any }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const terrainRef = useRef<HTMLCanvasElement>(null);
   const [players, setPlayers] = useState(new Map());
-  const [nodes, setNodes] = useState(new Map());
+  const [ranks, setRanks] = useState([]);
+  const [buildProgress, setBuildProgress] = useState<any[]>([]);
   const [myId, setMyId] = useState('');
   const [playerCount, setPlayerCount] = useState(0);
   const [battleMsg, setBattleMsg] = useState('');
@@ -319,10 +328,10 @@ export default function WorldMap({ room }) {
     const s = room?.state;
     if (!s || !s.players) return;
 
-    const newMap = new Map();
+    const newMap = new Map<string, PlayerState>();
     const ps = s.players;
 
-    const addEntry = (key, p) => {
+    const addEntry = (key: string, p: any) => {
       if (!p) return;
       newMap.set(key, {
         name: p.name ?? '?',
@@ -346,11 +355,11 @@ export default function WorldMap({ room }) {
     };
 
     if (ps instanceof Map) {
-      ps.forEach((p, k) => addEntry(k, p));
+      ps.forEach((p: any, k: string) => addEntry(k, p));
     } else if (ps.forEach) {
-      ps.forEach((p, k) => addEntry(k, p));
+      ps.forEach((p: any, k: string) => addEntry(k, p));
     } else if (typeof ps === 'object') {
-      Object.entries(ps).forEach(([k, p]) => addEntry(k, p));
+      Object.entries(ps).forEach(([k, p]) => addEntry(k, p as any));
     }
 
     playersRef.current = newMap;
@@ -360,20 +369,19 @@ export default function WorldMap({ room }) {
     // Sync resource nodes
     const s2 = room?.state;
     if (s2?.nodes) {
-      const newNodeMap = new Map();
+      const newNodeMap = new Map<string, NodeState>();
       const ns = s2.nodes;
-      const addNode = (k, n) => newNodeMap.set(k, {
+      const addNode = (k: string, n: any) => newNodeMap.set(k, {
         id: n.id ?? k,
         type: n.type ?? 'gold',
         x: n.x ?? 0,
         y: n.y ?? 0,
         amount: n.amount ?? 0,
       });
-      if (ns instanceof Map) ns.forEach((n, k) => addNode(k, n));
-      else if (ns.forEach) ns.forEach((n, k) => addNode(k, n));
-      else Object.entries(ns).forEach(([k, n]) => addNode(k, n));
+      if (ns instanceof Map) ns.forEach((n: any, k: string) => addNode(k, n));
+      else if (ns.forEach) ns.forEach((n: any, k: string) => addNode(k, n));
+      else Object.entries(ns).forEach(([k, n]) => addNode(k, n as any));
       nodesRef.current = newNodeMap;
-      setNodes(newNodeMap);
     }
   };
 
@@ -382,15 +390,17 @@ export default function WorldMap({ room }) {
     setMyId(room.sessionId);
     syncPlayers();
     room.onStateChange(syncPlayers);
-    room.onMessage('battle', (m) => {
+    room.onMessage('battle', (m: any) => {
       setBattleMsg(m.text);
       setTimeout(() => setBattleMsg(''), 5000);
     });
-    room.onMessage('buildStart', (m) => {
+    room.onMessage('buildStart', (m: any) => {
       const b = BUILDINGS[m.kind];
       setBattleMsg(`${b?.icon ?? '🏗️'} Building ${b?.label ?? m.kind}… (${Math.round((m.duration ?? 0) / 1000)}s)`);
       setTimeout(() => setBattleMsg(''), 4000);
     });
+    room.onMessage('rank', (r: any) => setRanks(r));
+    room.onMessage('buildProgress', (p: any) => setBuildProgress(p));
     const iv = setInterval(syncPlayers, 300);
     return () => {
       clearInterval(iv);
@@ -405,7 +415,7 @@ export default function WorldMap({ room }) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
     if (!terrainRef.current) terrainRef.current = buildTerrain();
 
     let raf: number;
@@ -415,7 +425,7 @@ export default function WorldMap({ room }) {
       t += 0.016;
 
       // Terrain
-      ctx.drawImage(terrainRef.current, 0, 0);
+      ctx.drawImage(terrainRef.current as HTMLCanvasElement, 0, 0);
 
       // Faint grid
       ctx.strokeStyle = 'rgba(255,255,255,0.035)';
@@ -481,6 +491,16 @@ export default function WorldMap({ room }) {
         const color = FACTION_COLORS[p.faction] || '#888';
         drawCastle(ctx, p.x, p.y, color, isMe);
 
+        const build = buildProgress.find((b: any) => b.pid === id);
+        if (build) {
+          const progress = 1 - (build.finish - Date.now()) / 10000;
+          ctx.strokeStyle = '#d4a64a';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 25, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
+          ctx.stroke();
+        }
+
         // name plate
         const nameW = ctx.measureText(p.name).width + 14;
         ctx.fillStyle = 'rgba(10,10,11,0.85)';
@@ -515,7 +535,8 @@ export default function WorldMap({ room }) {
     return () => cancelAnimationFrame(raf);
   }, [myId]);
 
-  const handleClick = (e) => {
+  const handleClick = (e: React.MouseEvent) => {
+    if (!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const scaleX = MAP_SIZE / rect.width;
     const scaleY = MAP_SIZE / rect.height;
@@ -546,7 +567,7 @@ export default function WorldMap({ room }) {
 
   const myPlayer = players.get(myId);
 
-  const handleBuild = (key) => {
+  const handleBuild = (key: string) => {
     if (!myPlayer) return;
     const cost = costFor(BUILDINGS[key], myPlayer[LEVEL_FIELD[key]]);
     if (myPlayer.gold < cost.gold || myPlayer.wood < cost.wood) return;
@@ -593,11 +614,21 @@ export default function WorldMap({ room }) {
 
       <div className="hud-bottom">
         <div className="coords">
-          {myPlayer ? `${Math.round(myPlayer.x)}, ${Math.round(myPlayer.y)}` : '---'}
-          {myPlayer?.isMoving && <span className="moving-indicator"> · Marching</span>}
+          <span className="hint">Move:</span> {myPlayer ? `${Math.round(myPlayer.x)},${Math.round(myPlayer.y)}` : '---'} click elsewhere
         </div>
-        <div className="hint">Click anywhere to march your army</div>
+        <div className="moving-indicator">{myPlayer?.isMoving ? 'MOVING' : ''}</div>
+        <div className="build-tip">{myPlayer?.gold}g {myPlayer?.wood}w {myPlayer?.farmLvl}🌾{myPlayer?.barracksLvl}⚔️{myPlayer?.mineLvl}⛏️</div>
       </div>
+      
+      {ranks.length > 0 && (
+        <div className="leaderboard">
+          {ranks.map((r: any, i: number) => <div key={i}>{i+1}. {r.name} ({r.score})</div>)}
+        </div>
+      )}
+
+      {myPlayer?.smithyLvl >= 1 && (
+        <button className="research-btn" onClick={() => sendResearch()}>🧪 Lab</button>
+      )}
 
       <div className="build-bar">
         <div className="build-bar-title">Buildings</div>

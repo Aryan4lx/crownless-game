@@ -9,7 +9,7 @@ const FACTIONS = [
   { id: 'khan',   name: 'Khan',   color: '#8a7a5a', desc: '+10% March Speed, +5% Gathering Yield', region: 'Steppe / Central Asian' },
 ];
 
-export default function Login({ onJoin }) {
+export default function Login({ onJoin }: { onJoin: (room: any) => void }) {
   const [name, setName] = useState('');
   const [faction, setFaction] = useState('sultan');
   const [connecting, setConnecting] = useState(false);
@@ -22,8 +22,8 @@ export default function Login({ onJoin }) {
     try {
       const room = await joinWorld(name.trim(), faction);
       onJoin(room);
-    } catch (e) {
-      setError(e.message || 'Failed to connect');
+    } catch (e: any) {
+      setError(e?.message || 'Failed to connect');
       setConnecting(false);
     }
   };

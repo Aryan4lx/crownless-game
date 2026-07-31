@@ -1,12 +1,19 @@
-import { Client } from 'colyseus.js';
+import { Client, Room } from 'colyseus.js';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'ws://[::1]:3000';
+declare global {
+  interface Window {
+    __room: any;
+  }
+}
+
+// const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'ws://[::1]:3000';
+const SERVER_URL = `ws://${window.location.host}`;
 
 export const client = new Client(SERVER_URL);
 
-export let room = null;
+export let room: Room | null = null;
 
-export async function joinWorld(name, faction) {
+export async function joinWorld(name: string, faction: string) {
   room = await client.joinOrCreate('world', { name, faction });
   console.log(`[Crownless] Joined world as ${name} (${faction})`);
   room.onLeave((code) => console.log(`[Crownless] ROOM LEAVE code=${code}`));
@@ -22,7 +29,7 @@ export function leaveWorld() {
   }
 }
 
-export function sendMove(x, y) {
+export function sendMove(x: number, y: number) {
   room?.send('move', { x, y });
 }
 
@@ -30,10 +37,14 @@ export function sendStop() {
   room?.send('stop');
 }
 
-export function sendBuild(building) {
+export function sendBuild(building: string) {
   room?.send('build', { kind: building });
 }
 
-export function sendAttack(targetId) {
+export function sendAttack(targetId: string) {
   room?.send('attack', { target: targetId });
+}
+
+export function sendResearch() {
+  room?.send('research');
 }

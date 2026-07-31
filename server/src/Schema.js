@@ -43,6 +43,7 @@ defineTypes(Player, {
   smithyLvl: 'number',
   farmLvl: 'number',
   mineLvl: 'number',
+  researchLvl: 'number',
   army: 'number',
 });
 

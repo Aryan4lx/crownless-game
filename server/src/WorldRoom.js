@@ -6,9 +6,9 @@ const BUILDINGS = {
   smithy:   { label: '🔨', gold: 150, wood: 100, duration: 6000 },
   farm:     { label: '🌾', gold: 80,  wood: 0,   duration: 4000 },
   mine:     { label: '⛏️', gold: 120, wood: 0,   duration: 5500 },
+  lab:      { label: 'Lab',     icon: '🧪', gold: 200, wood: 200, duration: 10000 },
 };
-
-const LEVEL_FIELD = { barracks: 'barracksLvl', smithy: 'smithyLvl', farm: 'farmLvl', mine: 'mineLvl' };
+const LEVEL_FIELD = { barracks: 'barracksLvl', smithy: 'smithyLvl', farm: 'farmLvl', mine: 'mineLvl', lab: 'researchLvl' };
 const costFor = (b, lvl) => ({ gold: Math.round(b.gold * (lvl + 1)), wood: Math.round(b.wood * (lvl + 1)) });
 const PENDING = new Map();
 
@@ -32,6 +32,7 @@ export default class WorldRoom extends Room {
     }
     this.clock.setInterval(() => this.state.serverTime = Date.now(), 1000);
     this.clock.setInterval(() => this.processBuilds(), 500);
+    this.clock.setInterval(() => this.broadcast('rank', this.getRankings()), 2000);
     this.clock.setInterval(() => this.state.players.forEach((p) => this.tickPlayer(p)), 250);
     this.clock.setInterval(() => {
       this.state.players.forEach((p) => {
@@ -41,10 +42,19 @@ export default class WorldRoom extends Room {
         p.army = Math.min(p.army + p.barracksLvl * 2, p.barracksLvl * 100);
       });
     }, 5000);
-    this.onMessage('build', (c, d) => this.build(c, d));
+    this.onMessage('build', (c, d) => this.handleBuild(c, d));
+    this.onMessage('research', (c) => this.handleResearch(c));
     this.onMessage('move', (c, d) => this.move(c, d));
     this.onMessage('stop', (c) => this.stop(c));
     this.onMessage('attack', (c, d) => this.attack(c, d));
+  }
+
+  // Player rank helper
+  getRankings() {
+    return Array.from(this.state.players.values())
+      .map(p => ({ name: p.name, score: p.gold + p.army * 10 }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
   }
 
   processBuilds() {
@@ -59,9 +69,13 @@ export default class WorldRoom extends Room {
         PENDING.delete(pid);
       }
     }
+    // Broadcast active builds for progress rings
+    this.broadcast('buildProgress', Array.from(PENDING.entries()).map(([pid, b]) => ({
+      pid, kind: b.kind, finish: b.finish
+    })));
   }
 
-  build(c, d) {
+  handleBuild(c, d) {
     const pid = c.sessionId;
     const p = this.state.players.get(pid);
     if (!p || !BUILDINGS[d.kind]) return;
@@ -73,6 +87,19 @@ export default class WorldRoom extends Room {
     p.wood -= cost.wood;
     PENDING.set(pid, { kind: d.kind, lvl: lvl + 1, finish: Date.now() + b.duration });
     c.send('buildStart', { kind: d.kind, lvl: lvl + 1, duration: b.duration });
+  }
+
+  handleResearch(c) {
+    const pid = c.sessionId;
+    const p = this.state.players.get(pid);
+    if (!p || p.smithyLvl < 1) return;
+    const lvl = p.researchLvl;
+    const cost = { gold: 200 * (lvl + 1), wood: 200 * (lvl + 1) };
+    if (p.gold < cost.gold || p.wood < cost.wood) return;
+    p.gold -= cost.gold;
+    p.wood -= cost.wood;
+    PENDING.set(pid, { kind: 'lab', lvl: lvl + 1, finish: Date.now() + 10000 });
+    c.send('buildStart', { kind: 'lab', lvl: lvl + 1, duration: 10000 });
   }
 
   move(c, d) {
