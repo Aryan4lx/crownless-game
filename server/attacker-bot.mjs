@@ -1,7 +1,7 @@
 // Attacker bot — builds barracks, waits for army, attacks the first other player
 import { Client } from 'colyseus.js';
 
-const client = new Client('ws://[::1]:2567');
+const client = new Client('ws://[::1]:3000');
 const t0 = Date.now();
 const ts = () => `t=${Math.round((Date.now() - t0) / 1000)}s`;
 
