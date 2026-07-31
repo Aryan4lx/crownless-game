@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { sendMove, sendStop, leaveWorld } from './network';
+import { sendMove, sendStop, sendBuild, leaveWorld } from './network';
 import './WorldMap.css';
 
 const MAP_SIZE = 1024;
@@ -11,6 +11,25 @@ const FACTION_COLORS = {
   king: '#3a5fa8',
   khan: '#8a7a5a',
 };
+
+const BUILDINGS = {
+  barracks: { label: 'Barracks', icon: '⚔️', gold: 100, wood: 50, desc: 'Trains army' },
+  smithy:   { label: 'Smithy',   icon: '🔨', gold: 150, wood: 100, desc: '+25% gather speed' },
+  farm:     { label: 'Farm',     icon: '🌾', gold: 80,  wood: 0,   desc: '+8 food/5s' },
+  mine:     { label: 'Mine',     icon: '⛏️', gold: 120, wood: 0,   desc: '+10 gold/5s' },
+};
+
+const LEVEL_FIELD = {
+  barracks: 'barracksLvl',
+  smithy: 'smithyLvl',
+  farm: 'farmLvl',
+  mine: 'mineLvl',
+};
+
+const costFor = (b, level) => ({
+  gold: Math.round(b.gold * (level + 1)),
+  wood: Math.round(b.wood * (level + 1)),
+});
 
 // ── Deterministic value noise (same terrain on every client) ────────
 function hash2(x, y, seed) {
@@ -310,10 +329,16 @@ export default function WorldMap({ room }) {
         tx: p.targetX ?? p.x ?? 0,
         ty: p.targetY ?? p.y ?? 0,
         isMoving: p.isMoving ?? false,
+        castleLvl: p.castleLvl ?? 1,
         gold: p.gold ?? 0,
         food: p.food ?? 0,
         wood: p.wood ?? 0,
         gatheringNodeId: p.gatheringNodeId ?? '',
+        barracksLvl: p.barracksLvl ?? 0,
+        smithyLvl: p.smithyLvl ?? 0,
+        farmLvl: p.farmLvl ?? 0,
+        mineLvl: p.mineLvl ?? 0,
+        army: p.army ?? 0,
       });
     };
 
@@ -494,6 +519,18 @@ export default function WorldMap({ room }) {
 
   const myPlayer = players.get(myId);
 
+  const handleBuild = (key) => {
+    if (!myPlayer) return;
+    const cost = costFor(BUILDINGS[key], myPlayer[LEVEL_FIELD[key]]);
+    if (myPlayer.gold < cost.gold || myPlayer.wood < cost.wood) return;
+    sendBuild(key);
+  };
+
+  const armyPower = myPlayer?.army ?? 0;
+  const buildingsOwned = myPlayer
+    ? Object.keys(BUILDINGS).filter((k) => myPlayer[LEVEL_FIELD[k]] > 0)
+    : [];
+
   return (
     <div className="world-screen">
       <div className="hud-top">
@@ -515,6 +552,7 @@ export default function WorldMap({ room }) {
           <span className="hud-online">● {playerCount} ruler{playerCount !== 1 ? 's' : ''} online</span>
         </div>
         <div className="hud-right">
+          <span className="army-count">⚔️ {armyPower}</span>
           <button className="leave-btn" onClick={handleLeave}>Leave Realm</button>
         </div>
       </div>
@@ -533,6 +571,28 @@ export default function WorldMap({ room }) {
           {myPlayer?.isMoving && <span className="moving-indicator"> · Marching</span>}
         </div>
         <div className="hint">Click anywhere to march your army</div>
+      </div>
+
+      <div className="build-bar">
+        <div className="build-bar-title">Buildings</div>
+        {Object.entries(BUILDINGS).map(([key, b]) => {
+          const level = myPlayer ? myPlayer[LEVEL_FIELD[key]] : 0;
+          const cost = costFor(b, level);
+          const canAfford = myPlayer && myPlayer.gold >= cost.gold && myPlayer.wood >= cost.wood;
+          return (
+            <button
+              key={key}
+              className={`build-btn ${canAfford ? 'afford' : ''}`}
+              onClick={() => handleBuild(key)}
+              title={b.desc}
+            >
+              <span className="build-icon">{b.icon}</span>
+              <span className="build-name">{b.label} {level > 0 ? `Lv${level}` : ''}</span>
+              <span className="build-cost">🪙{cost.gold}{cost.wood ? ` 🪵${cost.wood}` : ''}</span>
+            </button>
+          );
+        })}
+        <div className="build-tip">Buildings boost your economy. Costs rise with level.</div>
       </div>
     </div>
   );

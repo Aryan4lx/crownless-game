@@ -13,6 +13,26 @@ const NODE_SPAWNS = [
   { type: 'wood', count: 8, amount: 400 },
 ];
 
+// Building costs scale with next level: cost(level) = base * (level + 1)
+const BUILDINGS = {
+  barracks: { label: 'Barracks', icon: '⚔️', gold: 100, wood: 50, desc: 'Trains army (2/s per level)' },
+  smithy:   { label: 'Smithy',   icon: '🔨', gold: 150, wood: 100, desc: '+25% gather speed per level' },
+  farm:     { label: 'Farm',     icon: '🌾', gold: 80,  wood: 0,   desc: '+8 food per 5s per level' },
+  mine:     { label: 'Mine',     icon: '⛏️', gold: 120, wood: 0,   desc: '+10 gold per 5s per level' },
+};
+
+const LEVEL_FIELD = {
+  barracks: 'barracksLvl',
+  smithy: 'smithyLvl',
+  farm: 'farmLvl',
+  mine: 'mineLvl',
+};
+
+const costFor = (building, level) => ({
+  gold: Math.round(building.gold * (level + 1)),
+  wood: Math.round(building.wood * (level + 1)),
+});
+
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 export class WorldRoom extends Room {
@@ -36,9 +56,10 @@ export class WorldRoom extends Room {
     // Passive economy production (castle production)
     this.clock.setInterval(() => {
       this.state.players.forEach((p) => {
-        p.gold += p.castleLvl * 5;
-        p.food += p.castleLvl * 2;
+        p.gold += p.castleLvl * 5 + p.mineLvl * 10;
+        p.food += p.castleLvl * 2 + p.farmLvl * 8;
         p.wood += p.castleLvl * 2;
+        p.army = Math.min(p.army + p.barracksLvl * 2, p.barracksLvl * 100);
       });
     }, 5000);
 
@@ -49,6 +70,21 @@ export class WorldRoom extends Room {
       player.targetY = clamp(data.y, 0, MAP_SIZE);
       player.isMoving = true;
       player.gatheringNodeId = ''; // moving cancels gathering
+    });
+
+    this.onMessage('build', (client, data) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || !BUILDINGS[data.building]) return;
+      const b = BUILDINGS[data.building];
+      const field = LEVEL_FIELD[data.building];
+      const level = player[field];
+      const cost = costFor(b, level);
+      if (player.gold < cost.gold || player.wood < cost.wood) return;
+      player.gold -= cost.gold;
+      player.wood -= cost.wood;
+      player[field] = level + 1;
+      client.send('built', { building: data.building, level: level + 1 });
+      console.log(`[${client.sessionId}] built ${data.building} → lvl ${level + 1}`);
     });
 
     this.onMessage('stop', (client) => {
@@ -113,7 +149,7 @@ export class WorldRoom extends Room {
     if (p.gatheringNodeId) {
       const node = this.state.nodes.get(p.gatheringNodeId);
       if (node && node.amount > 0) {
-        const take = Math.min(node.amount, GATHER_PER_TICK);
+        const take = Math.min(node.amount, GATHER_PER_TICK * (1 + p.smithyLvl * 0.25));
         node.amount -= take;
         if (node.type === 'gold') p.gold += take;
         else if (node.type === 'food') p.food += take;

@@ -29,3 +29,7 @@ export function sendMove(x, y) {
 export function sendStop() {
   room?.send('stop');
 }
+
+export function sendBuild(building) {
+  room?.send('build', { building });
+}

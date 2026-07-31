@@ -17,7 +17,7 @@ try {
     else if (ps?.forEach) ps.forEach((p, k) => { if (k === room.sessionId) me = p; });
 
     let meInfo = me
-      ? `${me.name} gold=${Math.round(me.gold)} food=${Math.round(me.food)} wood=${Math.round(me.wood)} gather=${me.gatheringNodeId || '-'} moving=${me.isMoving} @${Math.round(me.x)},${Math.round(me.y)}`
+      ? `${me.name} gold=${Math.round(me.gold)} food=${Math.round(me.food)} wood=${Math.round(me.wood)} army=${me.army} b=${me.barracksLvl}s=${me.smithyLvl}f=${me.farmLvl}m=${me.mineLvl} gather=${me.gatheringNodeId || '-'} moving=${me.isMoving} @${Math.round(me.x)},${Math.round(me.y)}`
       : 'NO-ME';
 
     let nodeInfo = '';
@@ -42,6 +42,26 @@ try {
       console.log(ts(), 'NO NODES IN STATE');
     }
   }, 3000);
+
+  // Build a farm once rich enough
+  const buildTimer = setInterval(() => {
+    const s = room.state;
+    const ps = s?.players;
+    let me = null;
+    if (ps?.get) me = ps.get(room.sessionId);
+    else if (ps?.forEach) ps.forEach((p, k) => { if (k === room.sessionId) me = p; });
+    if (me && me.gold >= 80 && me.farmLvl === 0) {
+      room.send('build', { building: 'farm' });
+      console.log(ts(), 'BOT BUILDS farm');
+    } else if (me && me.gold >= 100 && me.farmLvl >= 1 && me.barracksLvl === 0) {
+      room.send('build', { building: 'barracks' });
+      console.log(ts(), 'BOT BUILDS barracks');
+    } else if (me && me.gold >= 120 && me.barracksLvl >= 1 && me.mineLvl === 0) {
+      room.send('build', { building: 'mine' });
+      console.log(ts(), 'BOT BUILDS mine');
+      clearInterval(buildTimer);
+    }
+  }, 1000);
 
   setTimeout(async () => {
     await room.leave();

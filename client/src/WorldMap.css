@@ -50,6 +50,87 @@
 .res.food { color: #8ab87a; }
 .res.wood { color: #b89a6a; }
 .res.gathering { color: #7ec8e3; font-style: italic; }
+
+.army-count {
+  font-size: 13px;
+  color: #e0ddd5;
+  margin-right: 14px;
+}
+
+.build-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(10, 10, 11, 0.94);
+  border-top: 1px solid #2a2a2e;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+}
+
+.build-bar-title {
+  font-size: 11px;
+  color: #88837a;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-right: 6px;
+}
+
+.build-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 14px;
+  background: #16171a;
+  border: 1px solid #2a2a2e;
+  border-radius: 6px;
+  color: #77726a;
+  cursor: pointer;
+  font-family: 'Georgia', serif;
+  transition: all 0.15s ease;
+}
+
+.build-btn.afford {
+  color: #e0ddd5;
+  border-color: rgba(212, 166, 74, 0.5);
+}
+
+.build-btn.afford:hover {
+  background: #1d1e22;
+  border-color: #d4a64a;
+  transform: translateY(-1px);
+}
+
+.build-icon {
+  font-size: 16px;
+}
+
+.build-name {
+  font-size: 11px;
+}
+
+.build-cost {
+  font-size: 10px;
+  color: #f0c040;
+}
+
+.build-btn:not(.afford) .build-cost {
+  color: #5a564e;
+}
+
+.build-tip {
+  margin-left: auto;
+  font-size: 10px;
+  color: #55514a;
+  max-width: 220px;
+  text-align: right;
+  line-height: 1.4;
+}
 }
 
 .hud-faction {
