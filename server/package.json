@@ -1,0 +1,20 @@
+{
+  "name": "crownless-server",
+  "version": "0.1.0",
+  "description": "Crownless MMORTS game server",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node index.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@colyseus/core": "^0.16.0",
+    "@colyseus/monitor": "^0.16.0",
+    "@colyseus/tools": "^0.16.0",
+    "@colyseus/ws-transport": "^0.16.0",
+    "colyseus": "^0.16.0",
+    "colyseus.js": "^0.16.22",
+    "express": "^5.1.0"
+  }
+}
