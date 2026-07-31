@@ -87,11 +87,26 @@ export class WorldRoom extends Room {
       console.log(`[${client.sessionId}] built ${data.building} → lvl ${level + 1}`);
     });
 
+    this.onMessage('attack', (client, data) => {
+      const player = this.state.players.get(client.sessionId);
+      const target = this.state.players.get(data.target);
+      if (!player || !target || target === player) return;
+      if (player.army <= 0) return;
+      if (Math.hypot(target.x - player.x, target.y - player.y) > 600) return; // range limit
+      player.attackTarget = data.target;
+      player.targetX = target.x;
+      player.targetY = target.y;
+      player.isMoving = true;
+      player.gatheringNodeId = '';
+      console.log(`[${client.sessionId}] ${player.name} attacks ${target.name}`);
+    });
+
     this.onMessage('stop', (client) => {
       const player = this.state.players.get(client.sessionId);
       if (player) {
         player.isMoving = false;
         player.gatheringNodeId = '';
+        player.attackTarget = '';
       }
     });
   }
@@ -123,6 +138,8 @@ export class WorldRoom extends Room {
         p.x = p.targetX;
         p.y = p.targetY;
         p.isMoving = false;
+        // Arrived at an attack target → resolve battle
+        if (p.attackTarget) this.resolveBattle(p);
       } else {
         p.x += (dx / dist) * step;
         p.y += (dy / dist) * step;
@@ -162,6 +179,35 @@ export class WorldRoom extends Room {
         p.gatheringNodeId = '';
       }
     }
+  }
+
+  resolveBattle(attacker) {
+    const defender = this.state.players.get(attacker.attackTarget);
+    attacker.attackTarget = '';
+    if (!defender) return; // target left mid-march
+
+    const atk = attacker.army;
+    const def = defender.army;
+    let msg;
+
+    if (atk > def) {
+      // Attacker wins: defender army wiped, attacker loses 30%, loot 20% gold
+      const lost = Math.round(atk * 0.3);
+      attacker.army = atk - lost;
+      const loot = Math.round(defender.gold * 0.2);
+      defender.army = 0;
+      defender.gold -= loot;
+      attacker.gold += loot;
+      msg = `⚔️ ${attacker.name} defeated ${defender.name}! Looted ${loot} gold.`;
+    } else {
+      // Defender holds: attacker routed (loses 80%), defender loses 40%
+      attacker.army = Math.max(0, Math.round(atk * 0.2));
+      defender.army = Math.max(0, def - Math.round(def * 0.4));
+      msg = `🛡️ ${defender.name} repelled ${attacker.name}'s attack!`;
+    }
+
+    console.log(`[battle] ${msg}`);
+    this.broadcast('battle', { text: msg });
   }
 
   onJoin(client, options) {

@@ -16,6 +16,7 @@ class Player extends Schema {
     this.food = 50;
     this.wood = 50;
     this.gatheringNodeId = '';
+    this.attackTarget = '';
     this.barracksLvl = 0;
     this.smithyLvl = 0;
     this.farmLvl = 0;
@@ -37,6 +38,7 @@ defineTypes(Player, {
   food: 'number',
   wood: 'number',
   gatheringNodeId: 'string',
+  attackTarget: 'string',
   barracksLvl: 'number',
   smithyLvl: 'number',
   farmLvl: 'number',

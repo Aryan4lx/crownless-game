@@ -33,3 +33,7 @@ export function sendStop() {
 export function sendBuild(building) {
   room?.send('build', { building });
 }
+
+export function sendAttack(targetId) {
+  room?.send('attack', { target: targetId });
+}

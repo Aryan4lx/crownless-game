@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { sendMove, sendStop, sendBuild, leaveWorld } from './network';
+import { sendMove, sendStop, sendBuild, sendAttack, leaveWorld } from './network';
 import './WorldMap.css';
 
 const MAP_SIZE = 1024;
@@ -308,6 +308,7 @@ export default function WorldMap({ room }) {
   const [nodes, setNodes] = useState(new Map());
   const [myId, setMyId] = useState('');
   const [playerCount, setPlayerCount] = useState(0);
+  const [battleMsg, setBattleMsg] = useState('');
   const playersRef = useRef(new Map());
   const nodesRef = useRef(new Map());
 
@@ -379,6 +380,10 @@ export default function WorldMap({ room }) {
     setMyId(room.sessionId);
     syncPlayers();
     room.onStateChange(syncPlayers);
+    room.onMessage('battle', (m) => {
+      setBattleMsg(m.text);
+      setTimeout(() => setBattleMsg(''), 5000);
+    });
     const iv = setInterval(syncPlayers, 300);
     return () => {
       clearInterval(iv);
@@ -509,6 +514,21 @@ export default function WorldMap({ room }) {
     const scaleY = MAP_SIZE / rect.height;
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
+
+    // Clicking on another player's castle = attack (with confirm)
+    let targetId = null;
+    playersRef.current.forEach((p, id) => {
+      if (id === myId) return;
+      if (Math.hypot(p.x - x, p.y - y) < 30) targetId = id;
+    });
+    if (targetId) {
+      const target = playersRef.current.get(targetId);
+      if (window.confirm(`⚔️ Attack ${target.name}? (Your army: ${myPlayer?.army ?? 0})`)) {
+        sendAttack(targetId);
+      }
+      return;
+    }
+
     sendMove(Math.round(x), Math.round(y));
   };
 
@@ -564,6 +584,8 @@ export default function WorldMap({ room }) {
         className="world-canvas"
         onClick={handleClick}
       />
+
+      {battleMsg && <div className="battle-toast">{battleMsg}</div>}
 
       <div className="hud-bottom">
         <div className="coords">
