@@ -1,7 +1,7 @@
 // Second-player test client — joins, marches to a resource node, dumps state
 import { Client } from 'colyseus.js';
 
-const client = new Client('ws://[::1]:2567');
+const client = new Client('ws://[::1]:3000');
 const t0 = Date.now();
 const ts = () => `t=${Math.round((Date.now() - t0) / 1000)}s`;
 
@@ -51,13 +51,13 @@ try {
     if (ps?.get) me = ps.get(room.sessionId);
     else if (ps?.forEach) ps.forEach((p, k) => { if (k === room.sessionId) me = p; });
     if (me && me.gold >= 80 && me.farmLvl === 0) {
-      room.send('build', { building: 'farm' });
+      room.send('build', { kind: 'farm' });
       console.log(ts(), 'BOT BUILDS farm');
     } else if (me && me.gold >= 100 && me.farmLvl >= 1 && me.barracksLvl === 0) {
-      room.send('build', { building: 'barracks' });
+      room.send('build', { kind: 'barracks' });
       console.log(ts(), 'BOT BUILDS barracks');
     } else if (me && me.gold >= 120 && me.barracksLvl >= 1 && me.mineLvl === 0) {
-      room.send('build', { building: 'mine' });
+      room.send('build', { kind: 'mine' });
       console.log(ts(), 'BOT BUILDS mine');
       clearInterval(buildTimer);
     }

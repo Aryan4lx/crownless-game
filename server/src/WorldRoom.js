@@ -1,144 +1,117 @@
 import { Room } from 'colyseus';
 import { WorldState, Player, ResourceNode } from './Schema.js';
 
-const MAP_SIZE = 1024;
-const SPEED = 60;            // px per second
-const SIM_TICK_MS = 250;     // movement + gathering sim
-const GATHER_RADIUS = 30;    // px
-const GATHER_PER_TICK = 10;  // units per 250ms
-
-const NODE_SPAWNS = [
-  { type: 'gold', count: 8, amount: 500 },
-  { type: 'food', count: 8, amount: 400 },
-  { type: 'wood', count: 8, amount: 400 },
-];
-
-// Building costs scale with next level: cost(level) = base * (level + 1)
 const BUILDINGS = {
-  barracks: { label: 'Barracks', icon: '⚔️', gold: 100, wood: 50, desc: 'Trains army (2/s per level)' },
-  smithy:   { label: 'Smithy',   icon: '🔨', gold: 150, wood: 100, desc: '+25% gather speed per level' },
-  farm:     { label: 'Farm',     icon: '🌾', gold: 80,  wood: 0,   desc: '+8 food per 5s per level' },
-  mine:     { label: 'Mine',     icon: '⛏️', gold: 120, wood: 0,   desc: '+10 gold per 5s per level' },
+  barracks: { label: '⚡', gold: 100, wood: 50, duration: 5000 },
+  smithy:   { label: '🔨', gold: 150, wood: 100, duration: 6000 },
+  farm:     { label: '🌾', gold: 80,  wood: 0,   duration: 4000 },
+  mine:     { label: '⛏️', gold: 120, wood: 0,   duration: 5500 },
 };
 
-const LEVEL_FIELD = {
-  barracks: 'barracksLvl',
-  smithy: 'smithyLvl',
-  farm: 'farmLvl',
-  mine: 'mineLvl',
-};
+const LEVEL_FIELD = { barracks: 'barracksLvl', smithy: 'smithyLvl', farm: 'farmLvl', mine: 'mineLvl' };
+const costFor = (b, lvl) => ({ gold: Math.round(b.gold * (lvl + 1)), wood: Math.round(b.wood * (lvl + 1)) });
+const PENDING = new Map();
 
-const costFor = (building, level) => ({
-  gold: Math.round(building.gold * (level + 1)),
-  wood: Math.round(building.wood * (level + 1)),
-});
-
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-
-export class WorldRoom extends Room {
+export default class WorldRoom extends Room {
   maxClients = 500;
   state = new WorldState();
-  patchRate = 50; // 20 patches/sec
+  patchRate = 50;
 
-  onCreate(options) {
-    console.log(`[${new Date().toISOString()}] WorldRoom created`);
-    this.spawnNodes();
-
-    this.clock.setInterval(() => {
-      this.state.serverTime = Date.now();
-    }, 1000);
-
-    // Movement + gathering simulation
-    this.clock.setInterval(() => {
-      this.state.players.forEach((p) => this.tickPlayer(p));
-    }, SIM_TICK_MS);
-
-    // Passive economy production (castle production)
+  onCreate() {
+    for (const t of ['gold','food','wood']) {
+      const ids = new Map();
+      for (let i = 0; i < 8; i++) {
+        const n = new ResourceNode();
+        n.id = `${t}-${i}`;
+        n.type = t;
+        n.x = 64 + Math.random() * (1024 - 128);
+        n.y = 64 + Math.random() * (1024 - 128);
+        n.amount = t === 'gold' ? 500 : 400;
+        this.state.nodes.set(n.id, n);
+      }
+    }
+    this.clock.setInterval(() => this.state.serverTime = Date.now(), 1000);
+    this.clock.setInterval(() => this.processBuilds(), 500);
+    this.clock.setInterval(() => this.state.players.forEach((p) => this.tickPlayer(p)), 250);
     this.clock.setInterval(() => {
       this.state.players.forEach((p) => {
-        p.gold += p.castleLvl * 5 + p.mineLvl * 10;
-        p.food += p.castleLvl * 2 + p.farmLvl * 8;
-        p.wood += p.castleLvl * 2;
+        p.gold += 5 + p.mineLvl * 10;
+        p.food += 2 + p.farmLvl * 8;
+        p.wood += 2;
         p.army = Math.min(p.army + p.barracksLvl * 2, p.barracksLvl * 100);
       });
     }, 5000);
-
-    this.onMessage('move', (client, data) => {
-      const player = this.state.players.get(client.sessionId);
-      if (!player) return;
-      player.targetX = clamp(data.x, 0, MAP_SIZE);
-      player.targetY = clamp(data.y, 0, MAP_SIZE);
-      player.isMoving = true;
-      player.gatheringNodeId = ''; // moving cancels gathering
-    });
-
-    this.onMessage('build', (client, data) => {
-      const player = this.state.players.get(client.sessionId);
-      if (!player || !BUILDINGS[data.building]) return;
-      const b = BUILDINGS[data.building];
-      const field = LEVEL_FIELD[data.building];
-      const level = player[field];
-      const cost = costFor(b, level);
-      if (player.gold < cost.gold || player.wood < cost.wood) return;
-      player.gold -= cost.gold;
-      player.wood -= cost.wood;
-      player[field] = level + 1;
-      client.send('built', { building: data.building, level: level + 1 });
-      console.log(`[${client.sessionId}] built ${data.building} → lvl ${level + 1}`);
-    });
-
-    this.onMessage('attack', (client, data) => {
-      const player = this.state.players.get(client.sessionId);
-      const target = this.state.players.get(data.target);
-      if (!player || !target || target === player) return;
-      if (player.army <= 0) return;
-      if (Math.hypot(target.x - player.x, target.y - player.y) > 600) return; // range limit
-      player.attackTarget = data.target;
-      player.targetX = target.x;
-      player.targetY = target.y;
-      player.isMoving = true;
-      player.gatheringNodeId = '';
-      console.log(`[${client.sessionId}] ${player.name} attacks ${target.name}`);
-    });
-
-    this.onMessage('stop', (client) => {
-      const player = this.state.players.get(client.sessionId);
-      if (player) {
-        player.isMoving = false;
-        player.gatheringNodeId = '';
-        player.attackTarget = '';
-      }
-    });
+    this.onMessage('build', (c, d) => this.build(c, d));
+    this.onMessage('move', (c, d) => this.move(c, d));
+    this.onMessage('stop', (c) => this.stop(c));
+    this.onMessage('attack', (c, d) => this.attack(c, d));
   }
 
-  spawnNodes() {
-    let id = 0;
-    for (const { type, count, amount } of NODE_SPAWNS) {
-      for (let i = 0; i < count; i++) {
-        const node = new ResourceNode();
-        node.id = `${type}-${id++}`;
-        node.type = type;
-        node.x = 64 + Math.random() * (MAP_SIZE - 128);
-        node.y = 64 + Math.random() * (MAP_SIZE - 128);
-        node.amount = amount;
-        this.state.nodes.set(node.id, node);
+  processBuilds() {
+    const now = Date.now();
+    for (const [pid, b] of PENDING.entries()) {
+      if (now >= b.finish) {
+        const p = this.state.players.get(pid);
+        if (p) {
+          p[LEVEL_FIELD[b.kind]] = b.lvl;
+          this.broadcast('built', { kind: b.kind, lvl: b.lvl });
+        }
+        PENDING.delete(pid);
       }
     }
-    console.log(`[nodes] spawned ${this.state.nodes.size} resource nodes`);
+  }
+
+  build(c, d) {
+    const pid = c.sessionId;
+    const p = this.state.players.get(pid);
+    if (!p || !BUILDINGS[d.kind]) return;
+    const b = BUILDINGS[d.kind];
+    const lvl = p[LEVEL_FIELD[d.kind]];
+    const cost = costFor(b, lvl);
+    if (p.gold < cost.gold || p.wood < cost.wood) return;
+    p.gold -= cost.gold;
+    p.wood -= cost.wood;
+    PENDING.set(pid, { kind: d.kind, lvl: lvl + 1, finish: Date.now() + b.duration });
+    c.send('buildStart', { kind: d.kind, lvl: lvl + 1, duration: b.duration });
+  }
+
+  move(c, d) {
+    const p = this.state.players.get(c.sessionId);
+    if (!p) return;
+    p.targetX = Math.max(0, Math.min(1024, d.x));
+    p.targetY = Math.max(0, Math.min(1024, d.y));
+    p.isMoving = true;
+    p.gatheringNodeId = '';
+  }
+
+  stop(c) {
+    const p = this.state.players.get(c.sessionId);
+    if (p) { p.isMoving = false; p.gatheringNodeId = ''; }
+  }
+
+  attack(c, d) {
+    const acc = this.state.players.get(c.sessionId);
+    const def = this.state.players.get(d.target);
+    if (!acc || !def || acc === def || acc.army <= 0) return;
+    const dist = Math.hypot(def.x - acc.x, def.y - acc.y);
+    if (dist > 600) return;
+    acc.attackTarget = d.target;
+    acc.targetX = def.x;
+    acc.targetY = def.y;
+    acc.isMoving = true;
+    acc.gatheringNodeId = '';
   }
 
   tickPlayer(p) {
-    // Server-side movement toward target
     if (p.isMoving) {
       const dx = p.targetX - p.x;
       const dy = p.targetY - p.y;
       const dist = Math.hypot(dx, dy);
-      const step = (SPEED * SIM_TICK_MS) / 1000;
+      const step = 15; // 60px/s * 0.25s
       if (dist <= step) {
         p.x = p.targetX;
         p.y = p.targetY;
         p.isMoving = false;
-        // Arrived at an attack target → resolve battle
         if (p.attackTarget) this.resolveBattle(p);
       } else {
         p.x += (dx / dist) * step;
@@ -146,35 +119,26 @@ export class WorldRoom extends Room {
       }
     }
 
-    // Gathering: only when stationary
     if (p.isMoving) return;
 
+    // Gather
     if (!p.gatheringNodeId) {
-      // Find nearest node within gather radius
-      let best = null;
-      let bestDist = GATHER_RADIUS;
+      let best = null, bestDist = 30;
       this.state.nodes.forEach((n) => {
         const d = Math.hypot(n.x - p.x, n.y - p.y);
-        if (d < bestDist) {
-          bestDist = d;
-          best = n;
-        }
+        if (d < bestDist) { bestDist = d; best = n; }
       });
       if (best) p.gatheringNodeId = best.id;
     }
-
     if (p.gatheringNodeId) {
       const node = this.state.nodes.get(p.gatheringNodeId);
       if (node && node.amount > 0) {
-        const take = Math.min(node.amount, GATHER_PER_TICK * (1 + p.smithyLvl * 0.25));
+        const take = Math.min(node.amount, 10 * (1 + p.smithyLvl * 0.25));
         node.amount -= take;
         if (node.type === 'gold') p.gold += take;
         else if (node.type === 'food') p.food += take;
         else p.wood += take;
-        if (node.amount <= 0) {
-          this.state.nodes.delete(node.id);
-          p.gatheringNodeId = '';
-        }
+        if (node.amount <= 0) { this.state.nodes.delete(node.id); p.gatheringNodeId = ''; }
       } else {
         p.gatheringNodeId = '';
       }
@@ -184,14 +148,11 @@ export class WorldRoom extends Room {
   resolveBattle(attacker) {
     const defender = this.state.players.get(attacker.attackTarget);
     attacker.attackTarget = '';
-    if (!defender) return; // target left mid-march
+    if (!defender) return;
 
-    const atk = attacker.army;
-    const def = defender.army;
+    const atk = attacker.army, def = defender.army;
     let msg;
-
     if (atk > def) {
-      // Attacker wins: defender army wiped, attacker loses 30%, loot 20% gold
       const lost = Math.round(atk * 0.3);
       attacker.army = atk - lost;
       const loot = Math.round(defender.gold * 0.2);
@@ -200,32 +161,24 @@ export class WorldRoom extends Room {
       attacker.gold += loot;
       msg = `⚔️ ${attacker.name} defeated ${defender.name}! Looted ${loot} gold.`;
     } else {
-      // Defender holds: attacker routed (loses 80%), defender loses 40%
       attacker.army = Math.max(0, Math.round(atk * 0.2));
       defender.army = Math.max(0, def - Math.round(def * 0.4));
       msg = `🛡️ ${defender.name} repelled ${attacker.name}'s attack!`;
     }
-
-    console.log(`[battle] ${msg}`);
     this.broadcast('battle', { text: msg });
   }
 
-  onJoin(client, options) {
-    const player = new Player();
-    player.name = options.name || `Player-${client.sessionId.slice(0, 6)}`;
-    player.faction = options.faction || 'sultan';
-    player.x = 512 + (Math.random() * 200 - 100);
-    player.y = 512 + (Math.random() * 200 - 100);
-    this.state.players.set(client.sessionId, player);
-    console.log(`[${client.sessionId}] ${player.name} (${player.faction}) joined at (${player.x}, ${player.y})`);
+  onJoin(c, o) {
+    const p = new Player();
+    p.name = o.name || `Player-${c.sessionId.slice(0, 6)}`;
+    p.faction = o.faction || 'sultan';
+    p.x = 512 + (Math.random() * 200 - 100);
+    p.y = 512 + (Math.random() * 200 - 100);
+    this.state.players.set(c.sessionId, p);
   }
 
-  onLeave(client, consented) {
-    this.state.players.delete(client.sessionId);
-    console.log(`[${client.sessionId}] Player left`);
-  }
-
-  onDispose() {
-    console.log('WorldRoom disposed');
+  onLeave(c) {
+    this.state.players.delete(c.sessionId);
+    PENDING.delete(c.sessionId);
   }
 }

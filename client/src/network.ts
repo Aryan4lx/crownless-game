@@ -1,6 +1,6 @@
 import { Client } from 'colyseus.js';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'ws://[::1]:2567';
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'ws://[::1]:3000';
 
 export const client = new Client(SERVER_URL);
 
@@ -31,7 +31,7 @@ export function sendStop() {
 }
 
 export function sendBuild(building) {
-  room?.send('build', { building });
+  room?.send('build', { kind: building });
 }
 
 export function sendAttack(targetId) {

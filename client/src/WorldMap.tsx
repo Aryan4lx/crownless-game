@@ -5,21 +5,23 @@ import './WorldMap.css';
 const MAP_SIZE = 1024;
 const TERRAIN_SEED = 1337;
 
-const FACTION_COLORS = {
+const FACTION_COLORS: Record<string, string> = {
   sultan: '#d4a64a',
   tsar: '#b8334a',
   king: '#3a5fa8',
   khan: '#8a7a5a',
 };
 
-const BUILDINGS = {
+interface BuildingDef { label: string; icon: string; gold: number; wood: number; desc: string; }
+
+const BUILDINGS: Record<string, BuildingDef> = {
   barracks: { label: 'Barracks', icon: '⚔️', gold: 100, wood: 50, desc: 'Trains army' },
   smithy:   { label: 'Smithy',   icon: '🔨', gold: 150, wood: 100, desc: '+25% gather speed' },
   farm:     { label: 'Farm',     icon: '🌾', gold: 80,  wood: 0,   desc: '+8 food/5s' },
   mine:     { label: 'Mine',     icon: '⛏️', gold: 120, wood: 0,   desc: '+10 gold/5s' },
 };
 
-const LEVEL_FIELD = {
+const LEVEL_FIELD: Record<string, string> = {
   barracks: 'barracksLvl',
   smithy: 'smithyLvl',
   farm: 'farmLvl',
@@ -384,6 +386,11 @@ export default function WorldMap({ room }) {
       setBattleMsg(m.text);
       setTimeout(() => setBattleMsg(''), 5000);
     });
+    room.onMessage('buildStart', (m) => {
+      const b = BUILDINGS[m.kind];
+      setBattleMsg(`${b?.icon ?? '🏗️'} Building ${b?.label ?? m.kind}… (${Math.round((m.duration ?? 0) / 1000)}s)`);
+      setTimeout(() => setBattleMsg(''), 4000);
+    });
     const iv = setInterval(syncPlayers, 300);
     return () => {
       clearInterval(iv);
@@ -401,7 +408,7 @@ export default function WorldMap({ room }) {
     const ctx = canvas.getContext('2d');
     if (!terrainRef.current) terrainRef.current = buildTerrain();
 
-    let raf;
+    let raf: number;
     let t = 0;
 
     const render = () => {
@@ -456,7 +463,7 @@ export default function WorldMap({ room }) {
       // March paths (dashed line to target)
       ctx.setLineDash([6, 6]);
       ctx.lineWidth = 1.5;
-      playersRef.current.forEach((p, id) => {
+      playersRef.current.forEach((p) => {
         if (!p.isMoving) return;
         ctx.strokeStyle = FACTION_COLORS[p.faction] || '#888';
         ctx.globalAlpha = 0.6;
@@ -547,9 +554,6 @@ export default function WorldMap({ room }) {
   };
 
   const armyPower = myPlayer?.army ?? 0;
-  const buildingsOwned = myPlayer
-    ? Object.keys(BUILDINGS).filter((k) => myPlayer[LEVEL_FIELD[k]] > 0)
-    : [];
 
   return (
     <div className="world-screen">

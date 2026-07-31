@@ -23,7 +23,7 @@ const buildTimer = setInterval(() => {
   const m = me();
   if (!m) return;
   if (m.barracksLvl === 0 && m.gold >= 100 && m.wood >= 50) {
-    room.send('build', { building: 'barracks' });
+    room.send('build', { kind: 'barracks' });
     console.log(ts(), 'built barracks');
   }
 }, 1000);
