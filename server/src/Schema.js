@@ -57,6 +57,7 @@ class ResourceNode extends Schema {
     this.x = 0;
     this.y = 0;
     this.amount = 0;
+    this.maxAmount = 0;
   }
 }
 
@@ -66,6 +67,37 @@ defineTypes(ResourceNode, {
   x: 'number',
   y: 'number',
   amount: 'number',
+  maxAmount: 'number',
+});
+
+// ── Camp: neutral PvE target ────────────────────────────────────────
+class Camp extends Schema {
+  constructor() {
+    super();
+    this.id = '';
+    this.name = '';
+    this.x = 0;
+    this.y = 0;
+    this.army = 30;
+    this.maxArmy = 30;
+    this.lootGold = 150;
+    this.lootWood = 100;
+    this.alive = true;
+    this.respawnAt = 0;
+  }
+}
+
+defineTypes(Camp, {
+  id: 'string',
+  name: 'string',
+  x: 'number',
+  y: 'number',
+  army: 'number',
+  maxArmy: 'number',
+  lootGold: 'number',
+  lootWood: 'number',
+  alive: 'boolean',
+  respawnAt: 'number',
 });
 
 // ── WorldState: the room state ──────────────────────────────────────
@@ -74,6 +106,7 @@ class WorldState extends Schema {
     super();
     this.players = new MapSchema();
     this.nodes = new MapSchema();
+    this.camps = new MapSchema();
     this.serverTime = 0;
     this.battleLog = [];
   }
@@ -82,8 +115,9 @@ class WorldState extends Schema {
 defineTypes(WorldState, {
   players: { map: Player },
   nodes: { map: ResourceNode },
+  camps: { map: Camp },
   serverTime: 'number',
   battleLog: ['string'],
 });
 
-export { Player, ResourceNode, WorldState };
+export { Player, ResourceNode, Camp, WorldState };

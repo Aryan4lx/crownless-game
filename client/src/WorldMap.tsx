@@ -204,6 +204,65 @@ function drawNode(ctx: CanvasRenderingContext2D, x: number, y: number, type: str
   ctx.restore();
 }
 
+// ── Camp marker (PvE target) ────────────────────────────────────────
+function drawCamp(ctx: CanvasRenderingContext2D, c: CampState) {
+  ctx.save();
+  ctx.translate(c.x, c.y);
+
+  if (!c.alive) {
+    ctx.fillStyle = 'rgba(80,80,80,0.8)';
+    ctx.beginPath();
+    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#aaa';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('💀', 0, 1);
+    ctx.font = '9px sans-serif';
+    ctx.fillStyle = '#888';
+    ctx.fillText('raided', 0, 16);
+    ctx.restore();
+    return;
+  }
+
+  // tent / banner
+  ctx.fillStyle = '#8a2a2a';
+  ctx.beginPath();
+  ctx.moveTo(-9, 9);
+  ctx.lineTo(9, 9);
+  ctx.lineTo(0, -12);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#d4a64a';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  // skull icon
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('💀', 0, -1);
+
+  // name + army pill
+  const label = `${c.name} ⚔️${c.army}`;
+  ctx.font = '9px sans-serif';
+  const w = ctx.measureText(label).width + 10;
+  ctx.fillStyle = 'rgba(10,10,11,0.85)';
+  ctx.beginPath();
+  ctx.roundRect(-w / 2, -28, w, 14, 7);
+  ctx.fill();
+  ctx.fillStyle = '#e8d8c8';
+  ctx.fillText(label, 0, -21);
+
+  // loot hint
+  ctx.fillStyle = '#f0c040';
+  ctx.font = '8px sans-serif';
+  ctx.fillText(`🪙${c.lootGold}`, 0, 16);
+
+  ctx.restore();
+}
+
 // ── Build the terrain once into an offscreen canvas ─────────────────
 function buildTerrain() {
   const c = document.createElement('canvas');
@@ -310,6 +369,7 @@ interface PlayerState {
   barracksLvl: number; smithyLvl: number; farmLvl: number; mineLvl: number; army: number;
 }
 interface NodeState { id: string; type: string; x: number; y: number; amount: number; }
+interface CampState { id: string; name: string; x: number; y: number; army: number; lootGold: number; lootWood: number; alive: boolean; }
 
 export default function WorldMap({ room }: { room: any }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -325,6 +385,7 @@ export default function WorldMap({ room }: { room: any }) {
   const [battleMsg, setBattleMsg] = useState('');
   const playersRef = useRef(new Map());
   const nodesRef = useRef(new Map());
+  const campsRef = useRef(new Map());
 
   // Read players from room state, generically (works for MapSchema or plain object)
   const syncPlayers = () => {
@@ -385,6 +446,27 @@ export default function WorldMap({ room }: { room: any }) {
       else if (ns.forEach) ns.forEach((n: any, k: string) => addNode(k, n));
       else Object.entries(ns).forEach(([k, n]) => addNode(k, n as any));
       nodesRef.current = newNodeMap;
+    }
+
+    // Sync camps
+    const s3 = room?.state;
+    if (s3?.camps) {
+      const newCampMap = new Map<string, CampState>();
+      const cs = s3.camps;
+      const addCamp = (k: string, c: any) => newCampMap.set(k, {
+        id: c.id ?? k,
+        name: c.name ?? 'Camp',
+        x: c.x ?? 0,
+        y: c.y ?? 0,
+        army: c.army ?? 0,
+        lootGold: c.lootGold ?? 0,
+        lootWood: c.lootWood ?? 0,
+        alive: c.alive ?? true,
+      });
+      if (cs instanceof Map) cs.forEach((c: any, k: string) => addCamp(k, c));
+      else if (cs.forEach) cs.forEach((c: any, k: string) => addCamp(k, c));
+      else Object.entries(cs).forEach(([k, c]) => addCamp(k, c as any));
+      campsRef.current = newCampMap;
     }
   };
 
@@ -451,6 +533,9 @@ export default function WorldMap({ room }: { room: any }) {
 
       // Resource nodes
       nodesRef.current.forEach((n) => drawNode(ctx, n.x, n.y, n.type, n.amount));
+
+      // NPC camps
+      campsRef.current.forEach((c) => drawCamp(ctx, c));
 
       // Center monument (The Crown)
       const cx = MAP_SIZE / 2, cy = MAP_SIZE / 2;
@@ -561,6 +646,20 @@ export default function WorldMap({ room }: { room: any }) {
       const target = playersRef.current.get(targetId);
       if (window.confirm(`⚔️ Attack ${target.name}? (Your army: ${myPlayer?.army ?? 0})`)) {
         sendAttack(targetId);
+      }
+      return;
+    }
+
+    // Clicking on a camp = attack (PvE)
+    let campId = null;
+    campsRef.current.forEach((c, id) => {
+      if (!c.alive) return;
+      if (Math.hypot(c.x - x, c.y - y) < 30) campId = id;
+    });
+    if (campId) {
+      const camp = campsRef.current.get(campId);
+      if (window.confirm(`⚔️ Attack ${camp.name}? (Army: ${camp.army}, Loot: 🪙${camp.lootGold})`)) {
+        sendAttack(campId);
       }
       return;
     }

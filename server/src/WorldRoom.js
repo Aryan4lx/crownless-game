@@ -1,5 +1,5 @@
 import { Room } from 'colyseus';
-import { WorldState, Player, ResourceNode } from './Schema.js';
+import { WorldState, Player, ResourceNode, Camp } from './Schema.js';
 
 const BUILDINGS = {
   barracks: { label: '⚡', gold: 100, wood: 50, duration: 5000 },
@@ -41,13 +41,44 @@ export default class WorldRoom extends Room {
         n.x = 64 + Math.random() * (1024 - 128);
         n.y = 64 + Math.random() * (1024 - 128);
         n.amount = t === 'gold' ? 500 : 400;
+        n.maxAmount = n.amount;
         this.state.nodes.set(n.id, n);
       }
     }
+    // Spawn NPC camps in a ring away from the center (PvE targets)
+    const names = ['Barbarian Camp', 'Raider Outpost', 'Bandit Den', 'Desert Raiders', 'Steppe Marauders', 'Hill Bandits', 'Coastal Pirates'];
+    names.forEach((nm, i) => {
+      const ang = (i / names.length) * Math.PI * 2 + Math.random() * 0.5;
+      const rad = 220 + Math.random() * 230;
+      const camp = new Camp();
+      camp.id = `camp-${i}`;
+      camp.name = nm;
+      camp.x = Math.max(60, Math.min(964, 512 + Math.cos(ang) * rad));
+      camp.y = Math.max(60, Math.min(964, 512 + Math.sin(ang) * rad));
+      camp.maxArmy = 25 + Math.floor(Math.random() * 16);
+      camp.army = camp.maxArmy;
+      camp.lootGold = 120 + camp.maxArmy * 6;
+      camp.lootWood = 60 + camp.maxArmy * 4;
+      this.state.camps.set(camp.id, camp);
+    });
     this.clock.setInterval(() => this.state.serverTime = Date.now(), 1000);
     this.clock.setInterval(() => this.processBuilds(), 500);
     this.clock.setInterval(() => this.broadcast('rank', this.getRankings()), 2000);
     this.clock.setInterval(() => this.state.players.forEach((p) => this.tickPlayer(p)), 250);
+    // World upkeep: regenerate nodes + respawn camps
+    this.clock.setInterval(() => {
+      this.state.nodes.forEach((n) => {
+        if (n.amount < n.maxAmount) {
+          n.amount = Math.min(n.maxAmount, n.amount + Math.ceil(n.maxAmount * 0.05));
+        }
+      });
+      this.state.camps.forEach((camp) => {
+        if (!camp.alive && Date.now() >= camp.respawnAt) {
+          camp.alive = true;
+          camp.army = camp.maxArmy;
+        }
+      });
+    }, 10000);
     this.onMessage('build', (c, d) => this.handleBuild(c, d));
     this.onMessage('move', (c, d) => this.move(c, d));
     this.onMessage('stop', (c) => this.stop(c));
@@ -141,13 +172,24 @@ export default class WorldRoom extends Room {
 
   attack(c, d) {
     const acc = this.state.players.get(c.sessionId);
+    if (!acc || acc.army <= 0) return;
     const def = this.state.players.get(d.target);
-    if (!acc || !def || acc === def || acc.army <= 0) return;
-    const dist = Math.hypot(def.x - acc.x, def.y - acc.y);
-    if (dist > 600) return;
-    acc.attackTarget = d.target;
-    acc.targetX = def.x;
-    acc.targetY = def.y;
+    if (def) {
+      if (acc === def) return;
+      const dist = Math.hypot(def.x - acc.x, def.y - acc.y);
+      if (dist > 600) return;
+      acc.attackTarget = d.target;
+      acc.targetX = def.x;
+      acc.targetY = def.y;
+    } else {
+      const camp = this.state.camps.get(d.target);
+      if (!camp || !camp.alive) return;
+      const dist = Math.hypot(camp.x - acc.x, camp.y - acc.y);
+      if (dist > 600) return;
+      acc.attackTarget = d.target;
+      acc.targetX = camp.x;
+      acc.targetY = camp.y;
+    }
     acc.isMoving = true;
     acc.gatheringNodeId = '';
   }
@@ -184,22 +226,42 @@ export default class WorldRoom extends Room {
   }
 
   resolveBattle(attacker) {
-    const defender = this.state.players.get(attacker.attackTarget);
+    const targetId = attacker.attackTarget;
     attacker.attackTarget = '';
-    if (!defender) return;
-    const atk = attacker.army, def = defender.army;
+    if (!targetId) return;
     let msg;
-    if (atk > def) {
-      attacker.army -= Math.round(atk * 0.3);
-      const loot = Math.round(defender.gold * 0.2);
-      defender.army = 0;
-      defender.gold -= loot;
-      attacker.gold += loot;
-      msg = `⚔️ ${attacker.name} defeated ${defender.name}!`;
+    const def = this.state.players.get(targetId);
+    if (def) {
+      const atk = attacker.army, defA = def.army;
+      if (atk > defA) {
+        attacker.army -= Math.round(atk * 0.3);
+        const loot = Math.round(def.gold * 0.2);
+        def.army = 0;
+        def.gold -= loot;
+        attacker.gold += loot;
+        msg = `⚔️ ${attacker.name} defeated ${def.name}!`;
+      } else {
+        attacker.army = Math.max(0, Math.round(atk * 0.2));
+        def.army = Math.max(0, defA - Math.round(defA * 0.4));
+        msg = `🛡️ ${def.name} defended!`;
+      }
     } else {
-      attacker.army = Math.max(0, Math.round(atk * 0.2));
-      defender.army = Math.max(0, def - Math.round(def * 0.4));
-      msg = `🛡️ ${defender.name} defended!`;
+      const camp = this.state.camps.get(targetId);
+      if (!camp || !camp.alive) return;
+      const atk = attacker.army, defA = camp.army;
+      if (atk > defA) {
+        attacker.army -= Math.round(atk * 0.25);
+        camp.alive = false;
+        camp.army = 0;
+        camp.respawnAt = Date.now() + 120000;
+        attacker.gold += camp.lootGold;
+        attacker.wood += camp.lootWood;
+        msg = `⚔️ ${attacker.name} razed ${camp.name}! +${camp.lootGold}g +${camp.lootWood}w`;
+      } else {
+        attacker.army = Math.max(0, Math.round(atk * 0.3));
+        camp.army = Math.max(0, defA - Math.round(defA * 0.3));
+        msg = `🛡️ ${camp.name} repelled ${attacker.name}!`;
+      }
     }
     this.state.battleLog.push(msg);
     if (this.state.battleLog.length > 10) this.state.battleLog.shift();
