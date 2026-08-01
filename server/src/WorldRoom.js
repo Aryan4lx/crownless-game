@@ -6,10 +6,16 @@ const BUILDINGS = {
   smithy:   { label: '🔨', gold: 150, wood: 100, duration: 6000 },
   farm:     { label: '🌾', gold: 80,  wood: 0,   duration: 4000 },
   mine:     { label: '⛏️', gold: 120, wood: 0,   duration: 5500 },
-  lab:      { label: 'Lab',     icon: '🧪', gold: 200, wood: 200, duration: 10000 },
 };
-const LEVEL_FIELD = { barracks: 'barracksLvl', smithy: 'smithyLvl', farm: 'farmLvl', mine: 'mineLvl', lab: 'researchLvl' };
-const costFor = (b, lvl) => ({ gold: Math.round(b.gold * (lvl + 1)), wood: Math.round(b.wood * (lvl + 1)) });
+
+const LEVEL_FIELD = {
+  barracks: 'barracksLvl',
+  smithy: 'smithyLvl',
+  farm: 'farmLvl',
+  mine: 'mineLvl',
+  lab: 'researchLvl',
+};
+
 const PENDING = new Map();
 
 export default class WorldRoom extends Room {
@@ -18,38 +24,25 @@ export default class WorldRoom extends Room {
   patchRate = 50;
 
   onCreate() {
-    for (const t of ['gold','food','wood']) {
-      const ids = new Map();
-      for (let i = 0; i < 8; i++) {
-        const n = new ResourceNode();
-        n.id = `${t}-${i}`;
-        n.type = t;
-        n.x = 64 + Math.random() * (1024 - 128);
-        n.y = 64 + Math.random() * (1024 - 128);
-        n.amount = t === 'gold' ? 500 : 400;
-        this.state.nodes.set(n.id, n);
-      }
-    }
     this.clock.setInterval(() => this.state.serverTime = Date.now(), 1000);
     this.clock.setInterval(() => this.processBuilds(), 500);
     this.clock.setInterval(() => this.broadcast('rank', this.getRankings()), 2000);
     this.clock.setInterval(() => this.state.players.forEach((p) => this.tickPlayer(p)), 250);
-    this.clock.setInterval(() => {
-      this.state.players.forEach((p) => {
-        p.gold += 5 + p.mineLvl * 10;
-        p.food += 2 + p.farmLvl * 8;
-        p.wood += 2;
-        p.army = Math.min(p.army + p.barracksLvl * 2, p.barracksLvl * 100);
-      });
-    }, 5000);
     this.onMessage('build', (c, d) => this.handleBuild(c, d));
-    this.onMessage('research', (c) => this.handleResearch(c));
     this.onMessage('move', (c, d) => this.move(c, d));
     this.onMessage('stop', (c) => this.stop(c));
     this.onMessage('attack', (c, d) => this.attack(c, d));
+    this.onMessage('research', (c) => this.handleResearch(c));
+    this.onMessage('chat', (c, d) => this.handleChat(c, d));
   }
 
-  // Player rank helper
+  handleChat(c, d) {
+    const pid = c.sessionId;
+    const player = this.state.players.get(pid);
+    if (!player) return;
+    this.broadcast('chat', { name: player.name, message: d.message, timestamp: Date.now() });
+  }
+
   getRankings() {
     return Array.from(this.state.players.values())
       .map(p => ({ name: p.name, score: p.gold + p.army * 10 }))
@@ -63,42 +56,39 @@ export default class WorldRoom extends Room {
       if (now >= b.finish) {
         const p = this.state.players.get(pid);
         if (p) {
-          p[LEVEL_FIELD[b.kind]] = b.lvl;
-          this.broadcast('built', { kind: b.kind, lvl: b.lvl });
+          p[LEVEL_FIELD[b.kind]] = (p[LEVEL_FIELD[b.kind]] || 0) + 1;
+          this.broadcast('built', { kind: b.kind, lvl: p[LEVEL_FIELD[b.kind]] });
         }
         PENDING.delete(pid);
       }
     }
-    // Broadcast active builds for progress rings
     this.broadcast('buildProgress', Array.from(PENDING.entries()).map(([pid, b]) => ({
       pid, kind: b.kind, finish: b.finish
     })));
   }
 
   handleBuild(c, d) {
-    const pid = c.sessionId;
-    const p = this.state.players.get(pid);
+    const p = this.state.players.get(c.sessionId);
     if (!p || !BUILDINGS[d.kind]) return;
     const b = BUILDINGS[d.kind];
-    const lvl = p[LEVEL_FIELD[d.kind]];
-    const cost = costFor(b, lvl);
+    const lvl = p[LEVEL_FIELD[d.kind]] || 0;
+    const cost = { gold: Math.round(b.gold * (lvl + 1)), wood: Math.round(b.wood * (lvl + 1)) };
     if (p.gold < cost.gold || p.wood < cost.wood) return;
     p.gold -= cost.gold;
     p.wood -= cost.wood;
-    PENDING.set(pid, { kind: d.kind, lvl: lvl + 1, finish: Date.now() + b.duration });
+    PENDING.set(c.sessionId, { kind: d.kind, lvl: lvl + 1, finish: Date.now() + b.duration });
     c.send('buildStart', { kind: d.kind, lvl: lvl + 1, duration: b.duration });
   }
 
   handleResearch(c) {
-    const pid = c.sessionId;
-    const p = this.state.players.get(pid);
+    const p = this.state.players.get(c.sessionId);
     if (!p || p.smithyLvl < 1) return;
-    const lvl = p.researchLvl;
+    const lvl = p.researchLvl || 0;
     const cost = { gold: 200 * (lvl + 1), wood: 200 * (lvl + 1) };
     if (p.gold < cost.gold || p.wood < cost.wood) return;
     p.gold -= cost.gold;
     p.wood -= cost.wood;
-    PENDING.set(pid, { kind: 'lab', lvl: lvl + 1, finish: Date.now() + 10000 });
+    PENDING.set(c.sessionId, { kind: 'lab', lvl: lvl + 1, finish: Date.now() + 10000 });
     c.send('buildStart', { kind: 'lab', lvl: lvl + 1, duration: 10000 });
   }
 
@@ -134,7 +124,7 @@ export default class WorldRoom extends Room {
       const dx = p.targetX - p.x;
       const dy = p.targetY - p.y;
       const dist = Math.hypot(dx, dy);
-      const step = 15; // 60px/s * 0.25s
+      const step = 15;
       if (dist <= step) {
         p.x = p.targetX;
         p.y = p.targetY;
@@ -145,18 +135,8 @@ export default class WorldRoom extends Room {
         p.y += (dy / dist) * step;
       }
     }
-
     if (p.isMoving) return;
 
-    // Gather
-    if (!p.gatheringNodeId) {
-      let best = null, bestDist = 30;
-      this.state.nodes.forEach((n) => {
-        const d = Math.hypot(n.x - p.x, n.y - p.y);
-        if (d < bestDist) { bestDist = d; best = n; }
-      });
-      if (best) p.gatheringNodeId = best.id;
-    }
     if (p.gatheringNodeId) {
       const node = this.state.nodes.get(p.gatheringNodeId);
       if (node && node.amount > 0) {
@@ -165,9 +145,6 @@ export default class WorldRoom extends Room {
         if (node.type === 'gold') p.gold += take;
         else if (node.type === 'food') p.food += take;
         else p.wood += take;
-        if (node.amount <= 0) { this.state.nodes.delete(node.id); p.gatheringNodeId = ''; }
-      } else {
-        p.gatheringNodeId = '';
       }
     }
   }
@@ -176,36 +153,26 @@ export default class WorldRoom extends Room {
     const defender = this.state.players.get(attacker.attackTarget);
     attacker.attackTarget = '';
     if (!defender) return;
-
     const atk = attacker.army, def = defender.army;
-    let msg;
     if (atk > def) {
-      const lost = Math.round(atk * 0.3);
-      attacker.army = atk - lost;
+      attacker.army -= Math.round(atk * 0.3);
       const loot = Math.round(defender.gold * 0.2);
       defender.army = 0;
       defender.gold -= loot;
       attacker.gold += loot;
-      msg = `⚔️ ${attacker.name} defeated ${defender.name}! Looted ${loot} gold.`;
+      this.broadcast('battle', { text: `⚔️ ${attacker.name} defeated ${defender.name}!` });
     } else {
       attacker.army = Math.max(0, Math.round(atk * 0.2));
       defender.army = Math.max(0, def - Math.round(def * 0.4));
-      msg = `🛡️ ${defender.name} repelled ${attacker.name}'s attack!`;
+      this.broadcast('battle', { text: `🛡️ ${defender.name} defended!` });
     }
-    this.broadcast('battle', { text: msg });
   }
 
   onJoin(c, o) {
     const p = new Player();
     p.name = o.name || `Player-${c.sessionId.slice(0, 6)}`;
-    p.faction = o.faction || 'sultan';
     p.x = 512 + (Math.random() * 200 - 100);
     p.y = 512 + (Math.random() * 200 - 100);
     this.state.players.set(c.sessionId, p);
-  }
-
-  onLeave(c) {
-    this.state.players.delete(c.sessionId);
-    PENDING.delete(c.sessionId);
   }
 }

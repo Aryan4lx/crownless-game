@@ -48,3 +48,7 @@ export function sendAttack(targetId: string) {
 export function sendResearch() {
   room?.send('research');
 }
+
+export function sendChat(message: string) {
+  room?.send('chat', { message });
+}

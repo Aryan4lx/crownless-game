@@ -1,5 +1,7 @@
 import express from 'express';
+import http from 'http';
 import { Server } from 'colyseus';
+import { WebSocketTransport } from '@colyseus/ws-transport';
 import { monitor } from '@colyseus/monitor';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -15,9 +17,13 @@ app.use((req, res, next) => {
   next();
 });
 
+const httpServer = http.createServer(app);
+
 const gameServer = new Server({
-  express: app,
-  pingInterval: 3000,
+  transport: new WebSocketTransport({
+    server: httpServer,
+    pingInterval: 3000,
+  }),
 });
 
 gameServer.define('world', WorldRoom);
@@ -33,14 +39,7 @@ const dist = path.join(__dirname, '../client/dist');
 app.use(express.static(dist));
 app.get('/', (req, res) => res.sendFile(path.join(dist, 'index.html')));
 
-gameServer.listen(port).then(() => {
+httpServer.listen(port, () => {
   console.log(`⚔️  Crownless server running on port ${port}`);
   console.log(`📊  Monitor: http://localhost:${port}/monitor`);
-}).catch((err) => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught:', err.message);
 });

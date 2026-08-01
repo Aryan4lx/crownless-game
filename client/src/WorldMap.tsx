@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { sendMove, sendBuild, sendAttack, sendResearch, leaveWorld } from './network';
+import { sendMove, sendBuild, sendAttack, sendResearch, sendChat, leaveWorld } from './network';
 import './WorldMap.css';
 
 const MAP_SIZE = 1024;
@@ -319,6 +319,8 @@ export default function WorldMap({ room }: { room: any }) {
   const [buildProgress, setBuildProgress] = useState<any[]>([]);
   const [myId, setMyId] = useState('');
   const [playerCount, setPlayerCount] = useState(0);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatInput, setChatInput] = useState('');
   const [battleMsg, setBattleMsg] = useState('');
   const playersRef = useRef(new Map());
   const nodesRef = useRef(new Map());
@@ -401,6 +403,9 @@ export default function WorldMap({ room }: { room: any }) {
     });
     room.onMessage('rank', (r: any) => setRanks(r));
     room.onMessage('buildProgress', (p: any) => setBuildProgress(p));
+    room.onMessage('chat', (m: any) => {
+      setChatMessages((prev: any[]) => [...prev, m]);
+    });
     const iv = setInterval(syncPlayers, 300);
     return () => {
       clearInterval(iv);
@@ -650,6 +655,28 @@ export default function WorldMap({ room }: { room: any }) {
           );
         })}
         <div className="build-tip">Buildings boost your economy. Costs rise with level.</div>
+      </div>
+
+      <div className="chat-panel">
+        <div className="chat-log">
+          {chatMessages.slice(-20).map((m: any, i: number) => (
+            <div key={i} className="chat-line">
+              <span className="chat-name">{m.name}:</span> {m.message}
+            </div>
+          ))}
+        </div>
+        <input
+          className="chat-input"
+          value={chatInput}
+          placeholder="Say something…"
+          onChange={(e) => setChatInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && chatInput.trim()) {
+              sendChat(chatInput.trim());
+              setChatInput('');
+            }
+          }}
+        />
       </div>
     </div>
   );
