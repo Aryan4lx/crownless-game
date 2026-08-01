@@ -57,7 +57,7 @@
   margin-right: 14px;
 }
 
-.build-bar {
+.build-bar dependingness {
   position: fixed;
   bottom: 0;
   left: 0;
@@ -72,12 +72,58 @@
   backdrop-filter: blur(8px);
 }
 
+.research-btn {
+  position: fixed;
+  right: 12px;
+  bottom: 16px;
+  z-index: 30;
+  background: rgba(10, 10, 11, 0.85);
+  border: 1px solid rgba(212, 166, 74, 0.4);
+  border-radius: 6px;
+  color: #d4a64a;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-family: monospace;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
 .build-bar-title {
   font-size: 11px;
   color: #88837a;
   text-transform: uppercase;
   letter-spacing: 1.5px;
   margin-right: 6px;
+}
+
+.research-btn {
+  position: fixed;
+  right: 12px;
+  bottom: 84px; /* above chat */
+  z-index: 30;
+  background: rgba(10, 10, 11, 0.85);
+  border: 1px solid rgba(212, 166, 74, 0.4);
+  border-radius: 6px;
+  color: #d4a64a;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.research-btn:hover {
+  background: rgba(15, 15, 17, 0.9);
+  border-color: rgba(212, 166, 74, 0.7);
+  transform: translateX(-2px);
+}
+
+.train-btn {
+  right: 92px; /* next to research button */
+}
+
+.train-btn:hover {
+  border-color: #b8334a;
 }
 
 .build-btn {
@@ -175,6 +221,36 @@
 
 .chat-input:focus {
   border-color: rgba(212, 166, 74, 0.8);
+}
+
+.battle-log {
+  position: fixed;
+  right: 12px;
+  top: 60px;
+  width: 240px;
+  z-index: 30;
+  background: rgba(10, 10, 11, 0.82);
+  border: 1px solid rgba(184, 51, 74, 0.35);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: #c9c4ba;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.battle-log-title {
+  color: #b8334a;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 10px;
+  margin-bottom: 2px;
+}
+
+.battle-log-line {
+  line-height: 1.4;
 }
 
 .battle-toast {

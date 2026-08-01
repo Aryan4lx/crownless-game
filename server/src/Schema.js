@@ -75,6 +75,7 @@ class WorldState extends Schema {
     this.players = new MapSchema();
     this.nodes = new MapSchema();
     this.serverTime = 0;
+    this.battleLog = [];
   }
 }
 
@@ -82,6 +83,7 @@ defineTypes(WorldState, {
   players: { map: Player },
   nodes: { map: ResourceNode },
   serverTime: 'number',
+  battleLog: ['string'],
 });
 
 export { Player, ResourceNode, WorldState };

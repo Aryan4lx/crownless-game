@@ -188,18 +188,23 @@ export default class WorldRoom extends Room {
     attacker.attackTarget = '';
     if (!defender) return;
     const atk = attacker.army, def = defender.army;
+    let msg;
     if (atk > def) {
       attacker.army -= Math.round(atk * 0.3);
       const loot = Math.round(defender.gold * 0.2);
       defender.army = 0;
       defender.gold -= loot;
       attacker.gold += loot;
-      this.broadcast('battle', { text: `⚔️ ${attacker.name} defeated ${defender.name}!` });
+      msg = `⚔️ ${attacker.name} defeated ${defender.name}!`;
     } else {
       attacker.army = Math.max(0, Math.round(atk * 0.2));
       defender.army = Math.max(0, def - Math.round(def * 0.4));
-      this.broadcast('battle', { text: `🛡️ ${defender.name} defended!` });
+      msg = `🛡️ ${defender.name} defended!`;
     }
+    this.state.battleLog.push(msg);
+    if (this.state.battleLog.length > 10) this.state.battleLog.shift();
+    this.broadcast('battle', { text: msg });
+    this.broadcast('battleLog', this.state.battleLog.slice());
   }
 
   onJoin(c, o) {

@@ -321,6 +321,7 @@ export default function WorldMap({ room }: { room: any }) {
   const [playerCount, setPlayerCount] = useState(0);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
+  const [battleLog, setBattleLog] = useState<string[]>([]);
   const [battleMsg, setBattleMsg] = useState('');
   const playersRef = useRef(new Map());
   const nodesRef = useRef(new Map());
@@ -394,8 +395,10 @@ export default function WorldMap({ room }: { room: any }) {
     room.onStateChange(syncPlayers);
     room.onMessage('battle', (m: any) => {
       setBattleMsg(m.text);
+      setBattleLog((prev: string[]) => [...prev, m.text].slice(-10));
       setTimeout(() => setBattleMsg(''), 5000);
     });
+    room.onMessage('battleLog', (log: string[]) => setBattleLog(log));
     room.onMessage('buildStart', (m: any) => {
       const b = BUILDINGS[m.kind];
       setBattleMsg(`${b?.icon ?? '🏗️'} Building ${b?.label ?? m.kind}… (${Math.round((m.duration ?? 0) / 1000)}s)`);
@@ -625,6 +628,15 @@ export default function WorldMap({ room }: { room: any }) {
         <div className="build-tip">{myPlayer?.gold}g {myPlayer?.wood}w {myPlayer?.farmLvl}🌾{myPlayer?.barracksLvl}⚔️{myPlayer?.mineLvl}⛏️</div>
       </div>
       
+      {battleLog.length > 0 && (
+        <div className="battle-log">
+          <div className="battle-log-title">⚔️ Battle Report</div>
+          {battleLog.slice().reverse().map((l: string, i: number) => (
+            <div key={i} className="battle-log-line">{l}</div>
+          ))}
+        </div>
+      )}
+
       {ranks.length > 0 && (
         <div className="leaderboard">
           {ranks.map((r: any, i: number) => <div key={i}>{i+1}. {r.name} ({r.score})</div>)}
