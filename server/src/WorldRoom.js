@@ -54,6 +54,17 @@ export default class WorldRoom extends Room {
     this.onMessage('attack', (c, d) => this.attack(c, d));
     this.onMessage('research', (c) => this.handleResearch(c));
     this.onMessage('chat', (c, d) => this.handleChat(c, d));
+    this.onMessage('train', (c) => this.handleTrain(c));
+  }
+
+  handleTrain(c) {
+    const p = this.state.players.get(c.sessionId);
+    if (!p || p.barracksLvl < 1) return;
+    const cost = 20 * (1 + p.army); // food, scales with army size
+    if (p.food < cost) return;
+    p.food -= cost;
+    p.army += 1;
+    c.send('train', { army: p.army });
   }
 
   handleChat(c, d) {

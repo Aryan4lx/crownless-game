@@ -52,3 +52,7 @@ export function sendResearch() {
 export function sendChat(message: string) {
   room?.send('chat', { message });
 }
+
+export function sendTrain() {
+  room?.send('train');
+}

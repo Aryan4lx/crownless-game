@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { sendMove, sendBuild, sendAttack, sendResearch, sendChat, leaveWorld } from './network';
+import { sendMove, sendBuild, sendAttack, sendResearch, sendChat, sendTrain, leaveWorld } from './network';
 import './WorldMap.css';
 
 const MAP_SIZE = 1024;
@@ -633,6 +633,16 @@ export default function WorldMap({ room }: { room: any }) {
 
       {myPlayer?.smithyLvl >= 1 && (
         <button className="research-btn" onClick={() => sendResearch()}>🧪 Lab</button>
+      )}
+
+      {myPlayer && myPlayer.barracksLvl >= 1 && (
+        <button
+          className="research-btn train-btn"
+          onClick={() => sendTrain()}
+          title={`Recruit a soldier (${Math.round(20 * (1 + (myPlayer.army ?? 0)))} food)`}
+        >
+          ⚔️ Train ({Math.round(20 * (1 + (myPlayer.army ?? 0)))}🌾)
+        </button>
       )}
 
       <div className="build-bar">
