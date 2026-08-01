@@ -23,6 +23,8 @@ class Player extends Schema {
     this.farmLvl = 0;
     this.mineLvl = 0;
     this.army = 0;
+    this.xp = 0;
+    this.level = 1;
   }
 }
 
@@ -46,6 +48,8 @@ defineTypes(Player, {
   mineLvl: 'number',
   researchLvl: 'number',
   army: 'number',
+  xp: 'number',
+  level: 'number',
 });
 
 // ── ResourceNode: world harvestable ─────────────────────────────────

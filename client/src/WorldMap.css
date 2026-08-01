@@ -46,6 +46,41 @@
   white-space: nowrap;
 }
 
+.hud-level {
+  color: #d4a64a;
+  font-weight: 700;
+  background: rgba(212, 166, 74, 0.12);
+  border: 1px solid rgba(212, 166, 74, 0.4);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-right: 10px;
+}
+
+.lb-level {
+  color: #d4a64a;
+  font-size: 10px;
+}
+
+.xp-bar {
+  position: fixed;
+  top: 42px;
+  left: 12px;
+  width: 260px;
+  height: 6px;
+  background: rgba(10, 10, 11, 0.85);
+  border: 1px solid rgba(212, 166, 74, 0.3);
+  border-radius: 3px;
+  z-index: 30;
+  overflow: hidden;
+}
+
+.xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #d4a64a, #f0c040);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
 .res.gold { color: #f0c040; }
 .res.food { color: #8ab87a; }
 .res.wood { color: #b89a6a; }

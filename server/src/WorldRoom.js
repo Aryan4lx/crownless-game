@@ -95,6 +95,7 @@ export default class WorldRoom extends Room {
     if (p.food < cost) return;
     p.food -= cost;
     p.army += 1;
+    this.gainXP(p, 5);
     c.send('train', { army: p.army });
   }
 
@@ -107,9 +108,23 @@ export default class WorldRoom extends Room {
 
   getRankings() {
     return Array.from(this.state.players.values())
-      .map(p => ({ name: p.name, score: p.gold + p.army * 10 }))
+      .map(p => ({ name: p.name, level: p.level, score: p.gold + p.army * 10 + p.level * 500 }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
+  }
+
+  // XP progression: linear thresholds, +50g reward per level-up
+  gainXP(p, amt) {
+    if (!p) return;
+    p.xp += amt;
+    let leveled = false;
+    while (p.xp >= p.level * 100) {
+      p.xp -= p.level * 100;
+      p.level += 1;
+      p.gold += 50 * p.level;
+      leveled = true;
+    }
+    if (leveled) this.broadcast('levelup', { name: p.name, level: p.level });
   }
 
   processBuilds() {
@@ -119,6 +134,7 @@ export default class WorldRoom extends Room {
         const p = this.state.players.get(pid);
         if (p) {
           p[LEVEL_FIELD[b.kind]] = (p[LEVEL_FIELD[b.kind]] || 0) + 1;
+          this.gainXP(p, 25);
           this.broadcast('built', { kind: b.kind, lvl: p[LEVEL_FIELD[b.kind]] });
         }
         PENDING.delete(pid);
@@ -153,6 +169,7 @@ export default class WorldRoom extends Room {
     p.wood -= cost.wood;
     const duration = Math.round(10000 * fb.research);
     PENDING.set(c.sessionId, { kind: 'lab', lvl: lvl + 1, finish: Date.now() + duration });
+    this.gainXP(p, 30);
     c.send('buildStart', { kind: 'lab', lvl: lvl + 1, duration });
   }
 
@@ -221,6 +238,7 @@ export default class WorldRoom extends Room {
         if (node.type === 'gold') p.gold += take;
         else if (node.type === 'food') p.food += take;
         else p.wood += take;
+        this.gainXP(p, 2);
       }
     }
   }
@@ -239,10 +257,12 @@ export default class WorldRoom extends Room {
         def.army = 0;
         def.gold -= loot;
         attacker.gold += loot;
+        this.gainXP(attacker, 40);
         msg = `⚔️ ${attacker.name} defeated ${def.name}!`;
       } else {
         attacker.army = Math.max(0, Math.round(atk * 0.2));
         def.army = Math.max(0, defA - Math.round(defA * 0.4));
+        this.gainXP(attacker, 15);
         msg = `🛡️ ${def.name} defended!`;
       }
     } else {
@@ -256,10 +276,12 @@ export default class WorldRoom extends Room {
         camp.respawnAt = Date.now() + 120000;
         attacker.gold += camp.lootGold;
         attacker.wood += camp.lootWood;
+        this.gainXP(attacker, 50);
         msg = `⚔️ ${attacker.name} razed ${camp.name}! +${camp.lootGold}g +${camp.lootWood}w`;
       } else {
         attacker.army = Math.max(0, Math.round(atk * 0.3));
         camp.army = Math.max(0, defA - Math.round(defA * 0.3));
+        this.gainXP(attacker, 15);
         msg = `🛡️ ${camp.name} repelled ${attacker.name}!`;
       }
     }

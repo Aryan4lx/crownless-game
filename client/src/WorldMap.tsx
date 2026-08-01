@@ -367,6 +367,7 @@ interface PlayerState {
   tx: number; ty: number; isMoving: boolean; castleLvl: number;
   gold: number; food: number; wood: number; gatheringNodeId: string;
   barracksLvl: number; smithyLvl: number; farmLvl: number; mineLvl: number; army: number;
+  xp: number; level: number;
 }
 interface NodeState { id: string; type: string; x: number; y: number; amount: number; }
 interface CampState { id: string; name: string; x: number; y: number; army: number; lootGold: number; lootWood: number; alive: boolean; }
@@ -415,6 +416,8 @@ export default function WorldMap({ room }: { room: any }) {
         farmLvl: p.farmLvl ?? 0,
         mineLvl: p.mineLvl ?? 0,
         army: p.army ?? 0,
+        xp: p.xp ?? 0,
+        level: p.level ?? 1,
       });
     };
 
@@ -487,6 +490,10 @@ export default function WorldMap({ room }: { room: any }) {
       setTimeout(() => setBattleMsg(''), 4000);
     });
     room.onMessage('rank', (r: any) => setRanks(r));
+    room.onMessage('levelup', (m: any) => {
+      setBattleMsg(`⬆️ ${m.name} reached level ${m.level}!`);
+      setTimeout(() => setBattleMsg(''), 5000);
+    });
     room.onMessage('buildProgress', (p: any) => setBuildProgress(p));
     room.onMessage('chat', (m: any) => {
       setChatMessages((prev: any[]) => [...prev, m]);
@@ -693,6 +700,7 @@ export default function WorldMap({ room }: { room: any }) {
           <span className="hud-name">{myPlayer?.name || 'Unknown'}</span>
           {myPlayer && (
             <span className="hud-resources">
+              <span className="hud-level">Lv {myPlayer.level}</span>
               <span className="res gold">🪙 {Math.round(myPlayer.gold)}</span>
               <span className="res food">🌾 {Math.round(myPlayer.food)}</span>
               <span className="res wood">🪵 {Math.round(myPlayer.wood)}</span>
@@ -719,6 +727,12 @@ export default function WorldMap({ room }: { room: any }) {
 
       {battleMsg && <div className="battle-toast">{battleMsg}</div>}
 
+      {myPlayer && (
+        <div className="xp-bar" title={`${Math.round(myPlayer.xp)}/${myPlayer.level * 100} XP to level ${myPlayer.level + 1}`}>
+          <div className="xp-fill" style={{ width: `${Math.min(100, (myPlayer.xp / (myPlayer.level * 100)) * 100)}%` }} />
+        </div>
+      )}
+
       <div className="hud-bottom">
         <div className="coords">
           <span className="hint">Move:</span> {myPlayer ? `${Math.round(myPlayer.x)},${Math.round(myPlayer.y)}` : '---'} click elsewhere
@@ -738,7 +752,7 @@ export default function WorldMap({ room }: { room: any }) {
 
       {ranks.length > 0 && (
         <div className="leaderboard">
-          {ranks.map((r: any, i: number) => <div key={i}>{i+1}. {r.name} ({r.score})</div>)}
+          {ranks.map((r: any, i: number) => <div key={i}>{i+1}. {r.name} <span className="lb-level">Lv{r.level ?? 1}</span> ({r.score})</div>)}
         </div>
       )}
 
