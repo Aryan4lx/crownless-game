@@ -18,12 +18,32 @@ const LEVEL_FIELD = {
 
 const PENDING = new Map();
 
+// Faction asymmetries: economic / military / speed identity
+const FACTION_BONUS = {
+  sultan: { label: 'Silk Road', gold: 1.1, gather: 1.0, march: 1.0, research: 0.8 },
+  tsar:   { label: 'Amur Guard', gold: 1.0, gather: 1.05, march: 1.0, research: 1.0 },
+  king:   { label: 'Knight Orders', gold: 1.0, gather: 1.0, march: 1.2, research: 1.0 },
+  khan:   { label: 'Steppe Horde', gold: 1.0, gather: 1.15, march: 1.25, research: 1.0 },
+};
+
 export default class WorldRoom extends Room {
   maxClients = 500;
   state = new WorldState();
   patchRate = 50;
 
   onCreate() {
+    // Spawn resource nodes: 8 of each type, scattered
+    for (const t of ['gold', 'food', 'wood']) {
+      for (let i = 0; i < 8; i++) {
+        const n = new ResourceNode();
+        n.id = `${t}-${i}`;
+        n.type = t;
+        n.x = 64 + Math.random() * (1024 - 128);
+        n.y = 64 + Math.random() * (1024 - 128);
+        n.amount = t === 'gold' ? 500 : 400;
+        this.state.nodes.set(n.id, n);
+      }
+    }
     this.clock.setInterval(() => this.state.serverTime = Date.now(), 1000);
     this.clock.setInterval(() => this.processBuilds(), 500);
     this.clock.setInterval(() => this.broadcast('rank', this.getRankings()), 2000);
@@ -83,13 +103,15 @@ export default class WorldRoom extends Room {
   handleResearch(c) {
     const p = this.state.players.get(c.sessionId);
     if (!p || p.smithyLvl < 1) return;
+    const fb = FACTION_BONUS[p.faction] || FACTION_BONUS.sultan;
     const lvl = p.researchLvl || 0;
     const cost = { gold: 200 * (lvl + 1), wood: 200 * (lvl + 1) };
     if (p.gold < cost.gold || p.wood < cost.wood) return;
     p.gold -= cost.gold;
     p.wood -= cost.wood;
-    PENDING.set(c.sessionId, { kind: 'lab', lvl: lvl + 1, finish: Date.now() + 10000 });
-    c.send('buildStart', { kind: 'lab', lvl: lvl + 1, duration: 10000 });
+    const duration = Math.round(10000 * fb.research);
+    PENDING.set(c.sessionId, { kind: 'lab', lvl: lvl + 1, finish: Date.now() + duration });
+    c.send('buildStart', { kind: 'lab', lvl: lvl + 1, duration });
   }
 
   move(c, d) {
@@ -120,11 +142,12 @@ export default class WorldRoom extends Room {
   }
 
   tickPlayer(p) {
+    const fb = FACTION_BONUS[p.faction] || FACTION_BONUS.sultan;
     if (p.isMoving) {
       const dx = p.targetX - p.x;
       const dy = p.targetY - p.y;
       const dist = Math.hypot(dx, dy);
-      const step = 15;
+      const step = 15 * fb.march;
       if (dist <= step) {
         p.x = p.targetX;
         p.y = p.targetY;
@@ -140,7 +163,7 @@ export default class WorldRoom extends Room {
     if (p.gatheringNodeId) {
       const node = this.state.nodes.get(p.gatheringNodeId);
       if (node && node.amount > 0) {
-        const take = Math.min(node.amount, 10 * (1 + p.smithyLvl * 0.25));
+        const take = Math.min(node.amount, 10 * (1 + p.smithyLvl * 0.25) * fb.gather);
         node.amount -= take;
         if (node.type === 'gold') p.gold += take;
         else if (node.type === 'food') p.food += take;
@@ -171,6 +194,7 @@ export default class WorldRoom extends Room {
   onJoin(c, o) {
     const p = new Player();
     p.name = o.name || `Player-${c.sessionId.slice(0, 6)}`;
+    p.faction = FACTION_BONUS[o.faction] ? o.faction : 'sultan';
     p.x = 512 + (Math.random() * 200 - 100);
     p.y = 512 + (Math.random() * 200 - 100);
     this.state.players.set(c.sessionId, p);

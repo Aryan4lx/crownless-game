@@ -17,7 +17,7 @@ class Player extends Schema {
     this.wood = 50;
     this.gatheringNodeId = '';
     this.attackTarget = '';
-    this.attackTarget = '';
+    this.researchLvl = 0;
     this.barracksLvl = 0;
     this.smithyLvl = 0;
     this.farmLvl = 0;
