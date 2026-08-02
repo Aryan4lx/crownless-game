@@ -4,3 +4,5 @@ dist/
 .env
 .DS_Store
 crownless.tar.gz
+crownless.db
+*.db
