@@ -26,6 +26,14 @@ const FACTION_BONUS = {
   khan:   { label: 'Steppe Horde', gold: 1.0, gather: 1.15, march: 1.25, research: 1.0 },
 };
 
+// Camp tier definitions: difficulty + reward scaling
+const CAMP_TIERS = [
+  { tier: 1, name: 'Raiders',   army: [18, 28],   lootMul: 1.0, xpMul: 1.0, respawn: 60000 },
+  { tier: 2, name: 'Brigands',  army: [35, 50],   lootMul: 2.0, xpMul: 1.5, respawn: 120000 },
+  { tier: 3, name: 'Warband',   army: [60, 85],   lootMul: 4.0, xpMul: 2.5, respawn: 240000 },
+  { tier: 4, name: 'Warlord',   army: [120, 160], lootMul: 10.0, xpMul: 5.0, respawn: 600000 },
+];
+
 export default class WorldRoom extends Room {
   maxClients = 500;
   state = new WorldState();
@@ -45,21 +53,34 @@ export default class WorldRoom extends Room {
         this.state.nodes.set(n.id, n);
       }
     }
-    // Spawn NPC camps in a ring away from the center (PvE targets)
-    const names = ['Barbarian Camp', 'Raider Outpost', 'Bandit Den', 'Desert Raiders', 'Steppe Marauders', 'Hill Bandits', 'Coastal Pirates'];
-    names.forEach((nm, i) => {
-      const ang = (i / names.length) * Math.PI * 2 + Math.random() * 0.5;
-      const rad = 220 + Math.random() * 230;
-      const camp = new Camp();
-      camp.id = `camp-${i}`;
-      camp.name = nm;
-      camp.x = Math.max(60, Math.min(964, 512 + Math.cos(ang) * rad));
-      camp.y = Math.max(60, Math.min(964, 512 + Math.sin(ang) * rad));
-      camp.maxArmy = 25 + Math.floor(Math.random() * 16);
-      camp.army = camp.maxArmy;
-      camp.lootGold = 120 + camp.maxArmy * 6;
-      camp.lootWood = 60 + camp.maxArmy * 4;
-      this.state.camps.set(camp.id, camp);
+    // Spawn NPC camps — tiered difficulty ring
+    // 4 T1 inner ring, 3 T2 mid ring, 2 T3 outer ring, 1 T4 boss
+    const layout = [
+      { tier: 0, count: 4, rad: [180, 260] },
+      { tier: 1, count: 3, rad: [320, 400] },
+      { tier: 2, count: 2, rad: [440, 480] },
+      { tier: 3, count: 1, rad: [510, 510] },
+    ];
+    let campIdx = 0;
+    layout.forEach((ring) => {
+      const spec = CAMP_TIERS[ring.tier];
+      for (let i = 0; i < ring.count; i++) {
+        const ang = (campIdx / 10) * Math.PI * 2 + Math.random() * 0.4;
+        const rad = ring.rad[0] + Math.random() * (ring.rad[1] - ring.rad[0]);
+        const camp = new Camp();
+        const army = spec.army[0] + Math.floor(Math.random() * (spec.army[1] - spec.army[0] + 1));
+        camp.id = `camp-${campIdx}`;
+        camp.name = `${spec.name}${ring.tier === 3 ? ' Stronghold' : ' Camp'}`;
+        camp.tier = spec.tier;
+        camp.x = Math.max(60, Math.min(964, 512 + Math.cos(ang) * rad));
+        camp.y = Math.max(60, Math.min(964, 512 + Math.sin(ang) * rad));
+        camp.maxArmy = army;
+        camp.army = army;
+        camp.lootGold = Math.round((120 + army * 6) * spec.lootMul);
+        camp.lootWood = Math.round((60 + army * 4) * spec.lootMul);
+        this.state.camps.set(camp.id, camp);
+        campIdx++;
+      }
     });
     this.clock.setInterval(() => this.state.serverTime = Date.now(), 1000);
     this.clock.setInterval(() => this.processBuilds(), 500);
@@ -269,19 +290,20 @@ export default class WorldRoom extends Room {
       const camp = this.state.camps.get(targetId);
       if (!camp || !camp.alive) return;
       const atk = attacker.army, defA = camp.army;
+      const tierSpec = CAMP_TIERS[(camp.tier || 1) - 1] || CAMP_TIERS[0];
       if (atk > defA) {
         attacker.army -= Math.round(atk * 0.25);
         camp.alive = false;
         camp.army = 0;
-        camp.respawnAt = Date.now() + 120000;
+        camp.respawnAt = Date.now() + tierSpec.respawn;
         attacker.gold += camp.lootGold;
         attacker.wood += camp.lootWood;
-        this.gainXP(attacker, 50);
+        this.gainXP(attacker, Math.round(50 * tierSpec.xpMul));
         msg = `⚔️ ${attacker.name} razed ${camp.name}! +${camp.lootGold}g +${camp.lootWood}w`;
       } else {
         attacker.army = Math.max(0, Math.round(atk * 0.3));
         camp.army = Math.max(0, defA - Math.round(defA * 0.3));
-        this.gainXP(attacker, 15);
+        this.gainXP(attacker, Math.round(15 * tierSpec.xpMul));
         msg = `🛡️ ${camp.name} repelled ${attacker.name}!`;
       }
     }

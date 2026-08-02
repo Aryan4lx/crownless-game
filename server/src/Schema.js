@@ -80,6 +80,7 @@ class Camp extends Schema {
     super();
     this.id = '';
     this.name = '';
+    this.tier = 1;
     this.x = 0;
     this.y = 0;
     this.army = 30;
@@ -94,6 +95,7 @@ class Camp extends Schema {
 defineTypes(Camp, {
   id: 'string',
   name: 'string',
+  tier: 'number',
   x: 'number',
   y: 'number',
   army: 'number',

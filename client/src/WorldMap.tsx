@@ -205,6 +205,10 @@ function drawNode(ctx: CanvasRenderingContext2D, x: number, y: number, type: str
 }
 
 // ── Camp marker (PvE target) ────────────────────────────────────────
+// Tier colors for camp markers
+const TIER_COLORS = ['#8a6a3e', '#b8334a', '#8a2a6a', '#c02020'];
+const TIER_ICONS = ['🗡️', '🪓', '⚔️', '👑'];
+
 function drawCamp(ctx: CanvasRenderingContext2D, c: CampState) {
   ctx.save();
   ctx.translate(c.x, c.y);
@@ -226,23 +230,32 @@ function drawCamp(ctx: CanvasRenderingContext2D, c: CampState) {
     return;
   }
 
-  // tent / banner
-  ctx.fillStyle = '#8a2a2a';
+  const color = TIER_COLORS[(c.tier || 1) - 1] || TIER_COLORS[0];
+  const scale = 1 + ((c.tier || 1) - 1) * 0.15; // boss is 45% bigger
+
+  // tent / banner, scaled by tier
+  ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.moveTo(-9, 9);
-  ctx.lineTo(9, 9);
-  ctx.lineTo(0, -12);
+  ctx.moveTo(-9 * scale, 9 * scale);
+  ctx.lineTo(9 * scale, 9 * scale);
+  ctx.lineTo(0, -12 * scale);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = '#d4a64a';
+  ctx.strokeStyle = c.tier >= 4 ? '#f0c040' : '#d4a64a';
   ctx.lineWidth = 1.2;
   ctx.stroke();
 
-  // skull icon
-  ctx.font = '10px sans-serif';
+  // tier icon
+  ctx.font = `${10 * scale}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('💀', 0, -1);
+  ctx.fillText(TIER_ICONS[(c.tier || 1) - 1] || '🗡️', 0, -1);
+
+  // tier pips (stars)
+  const stars = c.tier || 1;
+  ctx.font = '8px sans-serif';
+  ctx.fillStyle = '#f0c040';
+  ctx.fillText('★'.repeat(stars), 0, 8 * scale);
 
   // name + army pill
   const label = `${c.name} ⚔️${c.army}`;
@@ -250,10 +263,10 @@ function drawCamp(ctx: CanvasRenderingContext2D, c: CampState) {
   const w = ctx.measureText(label).width + 10;
   ctx.fillStyle = 'rgba(10,10,11,0.85)';
   ctx.beginPath();
-  ctx.roundRect(-w / 2, -28, w, 14, 7);
+  ctx.roundRect(-w / 2, -28 - (scale - 1) * 12, w, 14, 7);
   ctx.fill();
-  ctx.fillStyle = '#e8d8c8';
-  ctx.fillText(label, 0, -21);
+  ctx.fillStyle = c.tier >= 4 ? '#f0c040' : '#e8d8c8';
+  ctx.fillText(label, 0, -21 - (scale - 1) * 12);
 
   // loot hint
   ctx.fillStyle = '#f0c040';
@@ -370,7 +383,7 @@ interface PlayerState {
   xp: number; level: number;
 }
 interface NodeState { id: string; type: string; x: number; y: number; amount: number; }
-interface CampState { id: string; name: string; x: number; y: number; army: number; lootGold: number; lootWood: number; alive: boolean; }
+interface CampState { id: string; name: string; tier: number; x: number; y: number; army: number; lootGold: number; lootWood: number; alive: boolean; }
 
 export default function WorldMap({ room }: { room: any }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -459,6 +472,7 @@ export default function WorldMap({ room }: { room: any }) {
       const addCamp = (k: string, c: any) => newCampMap.set(k, {
         id: c.id ?? k,
         name: c.name ?? 'Camp',
+        tier: c.tier ?? 1,
         x: c.x ?? 0,
         y: c.y ?? 0,
         army: c.army ?? 0,
@@ -665,7 +679,8 @@ export default function WorldMap({ room }: { room: any }) {
     });
     if (campId) {
       const camp = campsRef.current.get(campId);
-      if (window.confirm(`⚔️ Attack ${camp.name}? (Army: ${camp.army}, Loot: 🪙${camp.lootGold})`)) {
+      const stars = '★'.repeat(camp.tier || 1);
+      if (window.confirm(`${stars} Attack ${camp.name}?\nArmy: ${camp.army} | Loot: 🪙${camp.lootGold} 🪵${camp.lootWood}\nYour army: ${myPlayer?.army ?? 0}`)) {
         sendAttack(campId);
       }
       return;
