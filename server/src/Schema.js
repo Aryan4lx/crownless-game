@@ -25,6 +25,8 @@ class Player extends Schema {
     this.army = 0;
     this.xp = 0;
     this.level = 1;
+    this.createdAt = 0;
+    this.isReturning = false;
   }
 }
 
@@ -50,6 +52,8 @@ defineTypes(Player, {
   army: 'number',
   xp: 'number',
   level: 'number',
+  createdAt: 'number',
+  isReturning: 'boolean',
 });
 
 // ── ResourceNode: world harvestable ─────────────────────────────────

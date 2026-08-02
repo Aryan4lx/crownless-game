@@ -1,5 +1,6 @@
 import { Room } from 'colyseus';
 import { WorldState, Player, ResourceNode, Camp } from './Schema.js';
+import { loadPlayer, savePlayer } from './db.js';
 
 const BUILDINGS = {
   barracks: { label: '⚡', gold: 100, wood: 50, duration: 5000 },
@@ -86,6 +87,10 @@ export default class WorldRoom extends Room {
     this.clock.setInterval(() => this.processBuilds(), 500);
     this.clock.setInterval(() => this.broadcast('rank', this.getRankings()), 2000);
     this.clock.setInterval(() => this.state.players.forEach((p) => this.tickPlayer(p)), 250);
+    // Auto-save all players every 30s
+    this.clock.setInterval(() => {
+      this.state.players.forEach((p) => savePlayer(p));
+    }, 30000);
     // World upkeep: regenerate nodes + respawn camps
     this.clock.setInterval(() => {
       this.state.nodes.forEach((n) => {
@@ -314,11 +319,46 @@ export default class WorldRoom extends Room {
   }
 
   onJoin(c, o) {
+    // Try loading saved player from DB; create new if first time
+    const saved = loadPlayer(o.name);
     const p = new Player();
-    p.name = o.name || `Player-${c.sessionId.slice(0, 6)}`;
-    p.faction = FACTION_BONUS[o.faction] ? o.faction : 'sultan';
-    p.x = 512 + (Math.random() * 200 - 100);
-    p.y = 512 + (Math.random() * 200 - 100);
+    if (saved) {
+      // Returning player — restore state
+      p.name = saved.name;
+      p.faction = saved.faction;
+      p.gold = saved.gold;
+      p.food = saved.food;
+      p.wood = saved.wood;
+      p.army = saved.army;
+      p.xp = saved.xp;
+      p.level = saved.level;
+      p.castleLvl = saved.castleLvl;
+      p.barracksLvl = saved.barracksLvl;
+      p.smithyLvl = saved.smithyLvl;
+      p.farmLvl = saved.farmLvl;
+      p.mineLvl = saved.mineLvl;
+      p.researchLvl = saved.researchLvl;
+      p.x = saved.x;
+      p.y = saved.y;
+      p.createdAt = saved.createdAt;
+      p.isReturning = true;
+    } else {
+      // New player
+      p.name = o.name || `Player-${c.sessionId.slice(0, 6)}`;
+      p.faction = FACTION_BONUS[o.faction] ? o.faction : 'sultan';
+      p.x = 512 + (Math.random() * 200 - 100);
+      p.y = 512 + (Math.random() * 200 - 100);
+      p.createdAt = Date.now();
+    }
     this.state.players.set(c.sessionId, p);
+  }
+
+  onLeave(c) {
+    const p = this.state.players.get(c.sessionId);
+    if (p) {
+      savePlayer(p);
+      console.log(`[DB] saved ${p.name} on disconnect`);
+    }
+    this.state.players.delete(c.sessionId);
   }
 }
