@@ -119,6 +119,9 @@ class WorldState extends Schema {
     this.camps = new MapSchema();
     this.serverTime = 0;
     this.battleLog = [];
+    this.crownHolder = '';
+    this.crownClaimedAt = 0;
+    this.crownActive = false;
   }
 }
 
@@ -128,6 +131,9 @@ defineTypes(WorldState, {
   camps: { map: Camp },
   serverTime: 'number',
   battleLog: ['string'],
+  crownHolder: 'string',
+  crownClaimedAt: 'number',
+  crownActive: 'boolean',
 });
 
 export { Player, ResourceNode, Camp, WorldState };

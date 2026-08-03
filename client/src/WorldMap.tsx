@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { sendMove, sendBuild, sendAttack, sendResearch, sendChat, sendTrain, leaveWorld } from './network';
+import { sendMove, sendBuild, sendAttack, sendResearch, sendChat, sendTrain, claimCrown, leaveWorld } from './network';
 import './WorldMap.css';
 
 const MAP_SIZE = 1024;
@@ -508,6 +508,10 @@ export default function WorldMap({ room }: { room: any }) {
       setBattleMsg(`⬆️ ${m.name} reached level ${m.level}!`);
       setTimeout(() => setBattleMsg(''), 5000);
     });
+    room.onMessage('crownVictory', (m: any) => {
+      setBattleMsg(`👑👑 ${m.name} IS SOVEREIGN! Realm victory!`);
+      setTimeout(() => setBattleMsg(''), 10000);
+    });
     room.onMessage('buildProgress', (p: any) => setBuildProgress(p));
     room.onMessage('chat', (m: any) => {
       setChatMessages((prev: any[]) => [...prev, m]);
@@ -770,6 +774,26 @@ export default function WorldMap({ room }: { room: any }) {
       />
 
       {battleMsg && <div className="battle-toast">{battleMsg}</div>}
+
+      {/* Crown status banner */}
+      {room?.state?.crownActive !== undefined && (
+        <div className="crown-status">
+          {!room.state.crownActive
+            ? <span className="crown-dormant">👑 Crown dormant — build-up phase</span>
+            : room.state.crownHolder
+              ? <span className="crown-held">👑 {room.state.crownHolder} holds The Crown</span>
+              : <span className="crown-open">👑 The Crown is unclaimed!</span>}
+        </div>
+      )}
+
+      {/* Claim Crown button — shows when Crown is active, unclaimed, and player near center */}
+      {myPlayer && room?.state?.crownActive && !room.state.crownHolder && (
+        Math.hypot(myPlayer.x - 512, myPlayer.y - 512) < 100 && (
+          <button className="claim-crown-btn" onClick={() => claimCrown()}>
+            👑 Claim The Crown
+          </button>
+        )
+      )}
 
       {myPlayer && (
         <div className="xp-bar" title={`${Math.round(myPlayer.xp)}/${myPlayer.level * 100} XP to level ${myPlayer.level + 1}`}>

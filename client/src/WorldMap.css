@@ -315,20 +315,49 @@
   letter-spacing: 0.1em;
 }
 
-.battle-toast {
+.crown-status {
   position: fixed;
-  top: 60px;
+  top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(10, 10, 11, 0.95);
-  border: 1px solid rgba(212, 166, 74, 0.6);
-  border-radius: 8px;
-  padding: 10px 20px;
+  z-index: 35;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 16px;
+  border-radius: 16px;
+  background: rgba(10, 10, 11, 0.88);
+  border: 1px solid rgba(212, 166, 74, 0.3);
+}
+
+.crown-dormant { color: #888; }
+.crown-open { color: #f0c040; animation: crownPulse 2s ease-in-out infinite; }
+.crown-held { color: #f04040; }
+
+@keyframes crownPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.claim-crown-btn {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, 120px);
+  z-index: 40;
+  background: linear-gradient(135deg, #d4a64a, #f0c040);
+  border: 2px solid #f0c040;
+  color: #1a1a1c;
   font-size: 14px;
-  color: #e0ddd5;
-  z-index: 20;
-  animation: toast-in 0.3s ease;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  font-weight: 700;
+  padding: 10px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  animation: claimGlow 1.5s ease-in-out infinite;
+}
+
+@keyframes claimGlow {
+  0%, 100% { box-shadow: 0 0 10px rgba(240, 192, 64, 0.4); }
+  50% { box-shadow: 0 0 25px rgba(240, 192, 64, 0.8); }
 }
 
 @keyframes toast-in {

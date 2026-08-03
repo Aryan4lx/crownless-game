@@ -65,6 +65,12 @@ export default class WorldRoom extends Room {
   state = new WorldState();
   patchRate = 50;
 
+  // Crown config: build-up phase, claim radius, Sovereign bonuses
+  static CROWN_BUILDUP_MS = 300000; // 5 min build-up (demo scale; production = 30 days)
+  static CROWN_RADIUS = 50;
+  static CROWN_HOLD_MS = 180000;    // 3 min hold to win (demo; production = 3 days Sovereign)
+  static CROWN_BONUS = { gold: 1.5, gather: 1.3, research: 0.7 }; // Sovereign bonuses while holding
+
   onCreate() {
     // Spawn resource nodes: 8 of each type, scattered
     for (const t of ['gold', 'food', 'wood']) {
@@ -116,8 +122,33 @@ export default class WorldRoom extends Room {
     this.clock.setInterval(() => {
       this.state.players.forEach((p) => savePlayer(p));
     }, 30000);
-    // World upkeep: regenerate nodes + respawn camps
+    // World upkeep: regenerate nodes, respawn camps, manage Crown
     this.clock.setInterval(() => {
+      // Activate Crown after build-up phase
+      if (!this.state.crownActive && this.state.serverTime >= WorldRoom.CROWN_BUILDUP_MS) {
+        this.state.crownActive = true;
+        const msg = '👑 The Crown awakens! March to the center to claim it!';
+        this.state.battleLog.push(msg);
+        if (this.state.battleLog.length > 10) this.state.battleLog.shift();
+        this.broadcast('battle', { text: msg });
+        this.broadcast('battleLog', this.state.battleLog.slice());
+      }
+      // Check if Crown holder has held long enough for Sovereignty
+      if (this.state.crownHolder && this.state.crownClaimedAt > 0) {
+        const heldFor = Date.now() - this.state.crownClaimedAt;
+        if (heldFor >= WorldRoom.CROWN_HOLD_MS) {
+          const msg = `👑👑 ${this.state.crownHolder} is now SOVEREIGN of the Realm! Victory!`;
+          this.state.battleLog.push(msg);
+          if (this.state.battleLog.length > 10) this.state.battleLog.shift();
+          this.broadcast('battle', { text: msg });
+          this.broadcast('battleLog', this.state.battleLog.slice());
+          this.broadcast('crownVictory', { name: this.state.crownHolder });
+          // Reset Crown for next contender
+          this.state.crownHolder = '';
+          this.state.crownClaimedAt = 0;
+        }
+      }
+      // Regenerate nodes
       this.state.nodes.forEach((n) => {
         if (n.amount < n.maxAmount) {
           n.amount = Math.min(n.maxAmount, n.amount + Math.ceil(n.maxAmount * 0.05));
@@ -137,6 +168,38 @@ export default class WorldRoom extends Room {
     this.onMessage('research', (c) => this.handleResearch(c));
     this.onMessage('chat', (c, d) => this.handleChat(c, d));
     this.onMessage('train', (c) => this.handleTrain(c));
+    this.onMessage('claimCrown', (c) => this.claimCrown(c));
+  }
+
+  // The Crown: center monument. Build-up phase, then claimable.
+  // First player to stand on it for CROWN_HOLD_MS becomes Sovereign.
+  claimCrown(c) {
+    if (rateLimited(c.sessionId, 'attack')) return; // reuse attack cooldown
+    if (!this.state.crownActive) {
+      c.send('battle', { text: '👑 The Crown is dormant. Build-up phase not over.' });
+      return;
+    }
+    if (this.state.crownHolder) {
+      c.send('battle', { text: `👑 ${this.state.crownHolder} holds The Crown! Defeat them first.` });
+      return;
+    }
+    const p = this.state.players.get(c.sessionId);
+    if (!p || p.army < 10) {
+      c.send('battle', { text: '👑 Need at least 10 troops to claim The Crown.' });
+      return;
+    }
+    const dist = Math.hypot(p.x - 512, p.y - 512);
+    if (dist > 80) {
+      c.send('battle', { text: '👑 Must be at the center to claim The Crown.' });
+      return;
+    }
+    this.state.crownHolder = p.name;
+    this.state.crownClaimedAt = Date.now();
+    const msg = `👑 ${p.name} has claimed The Crown! Holding for Sovereignty...`;
+    this.state.battleLog.push(msg);
+    if (this.state.battleLog.length > 10) this.state.battleLog.shift();
+    this.broadcast('battle', { text: msg });
+    this.broadcast('battleLog', this.state.battleLog.slice());
   }
 
   handleTrain(c) {
@@ -270,6 +333,9 @@ export default class WorldRoom extends Room {
 
   tickPlayer(p) {
     const fb = FACTION_BONUS[p.faction] || FACTION_BONUS.sultan;
+    // Sovereign gets bonus gold/gather/research while holding the Crown
+    const isSovereign = this.state.crownHolder === p.name;
+    const crownMul = isSovereign ? WorldRoom.CROWN_BONUS : { gold: 1, gather: 1, research: 1 };
     if (p.isMoving) {
       const dx = p.targetX - p.x;
       const dy = p.targetY - p.y;
@@ -292,9 +358,9 @@ export default class WorldRoom extends Room {
       if (node && node.amount > 0) {
         const take = Math.min(node.amount, 10 * (1 + p.smithyLvl * 0.25) * fb.gather);
         node.amount -= take;
-        if (node.type === 'gold') p.gold += take;
+        if (node.type === 'gold') p.gold += take * crownMul.gold;
         else if (node.type === 'food') p.food += take;
-        else p.wood += take;
+        else p.wood += take * crownMul.gather;
         this.gainXP(p, 2);
       }
     }
@@ -315,6 +381,15 @@ export default class WorldRoom extends Room {
         def.gold -= loot;
         attacker.gold += loot;
         this.gainXP(attacker, 40);
+        // Crown drops if holder is zeroed
+        if (this.state.crownHolder === def.name) {
+          this.state.crownHolder = '';
+          this.state.crownClaimedAt = 0;
+          const crownMsg = `👑 ${def.name} lost The Crown in defeat! It is unclaimed!`;
+          this.state.battleLog.push(crownMsg);
+          if (this.state.battleLog.length > 10) this.state.battleLog.shift();
+          this.broadcast('battle', { text: crownMsg });
+        }
         msg = `⚔️ ${attacker.name} defeated ${def.name}!`;
       } else {
         attacker.army = Math.max(0, Math.round(atk * 0.2));

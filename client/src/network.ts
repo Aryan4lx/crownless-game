@@ -56,3 +56,7 @@ export function sendChat(message: string) {
 export function sendTrain() {
   room?.send('train');
 }
+
+export function claimCrown() {
+  room?.send('claimCrown');
+}
