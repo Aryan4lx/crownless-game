@@ -1,0 +1,91 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sSandTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e8c890"/>
+      <stop offset="100%" stop-color="#c89858"/>
+    </linearGradient>
+    <linearGradient id="sSandLeft" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#b88848"/>
+      <stop offset="100%" stop-color="#785828"/>
+    </linearGradient>
+    <linearGradient id="sSandRight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#a87838"/>
+      <stop offset="100%" stop-color="#583818"/>
+    </linearGradient>
+    <linearGradient id="sGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe48a"/>
+      <stop offset="50%" stop-color="#d4a64a"/>
+      <stop offset="100%" stop-color="#8a6818"/>
+    </linearGradient>
+    <linearGradient id="sTile" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2a8a98"/>
+      <stop offset="100%" stop-color="#1a5a68"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Foundation slab -->
+  <polygon points="40,160 100,190 160,160 160,148 100,178 40,148" fill="#a87838"/>
+  <polygon points="40,148 100,178 100,190 40,160" fill="url(#sSandLeft)"/>
+  <polygon points="100,178 160,148 160,160 100,190" fill="url(#sSandRight)"/>
+
+  <!-- Main palace body -->
+  <polygon points="100,148 155,124 155,84 100,108" fill="url(#sSandRight)"/>
+  <polygon points="100,148 45,124 45,84 100,108" fill="url(#sSandLeft)"/>
+  <polygon points="100,84 155,108 100,132 45,108" fill="url(#sSandTop)"/>
+
+  <!-- Arched gate (center front) -->
+  <path d="M 88,118 Q 100,108 112,118 L 112,148 L 88,148 Z" fill="#3a2818"/>
+  <path d="M 92,124 Q 100,116 108,124 L 108,148 L 92,148 Z" fill="#1a1208"/>
+
+  <!-- Side windows -->
+  <path d="M 60,118 Q 65,112 70,118 L 70,134 L 60,134 Z" fill="#1a5a68"/>
+  <path d="M 130,118 Q 135,112 140,118 L 140,134 L 130,134 Z" fill="#1a5a68"/>
+
+  <!-- Tilework band -->
+  <polygon points="100,108 155,84 155,88 100,112" fill="url(#sTile)" opacity="0.85"/>
+  <polygon points="100,108 45,84 45,88 100,112" fill="#1a5a68" opacity="0.85"/>
+
+  <!-- Central great dome -->
+  <ellipse cx="100" cy="84" rx="34" ry="22" fill="url(#sGold)"/>
+  <ellipse cx="100" cy="84" rx="34" ry="22" fill="none" stroke="#6a4818" stroke-width="0.6"/>
+  <path d="M 100,62 Q 100,76 100,106" stroke="#8a6818" stroke-width="0.5" fill="none" opacity="0.5"/>
+  <!-- Finial -->
+  <line x1="100" y1="62" x2="100" y2="50" stroke="#6a4818" stroke-width="1"/>
+  <circle cx="100" cy="48" r="2.5" fill="#ffe48a"/>
+  <polygon points="100,40 103,52 100,55 97,52" fill="url(#sGold)"/>
+
+  <!-- Corner smaller domes (visible 2) -->
+  <ellipse cx="50" cy="92" rx="14" ry="9" fill="url(#sGold)"/>
+  <line x1="50" y1="83" x2="50" y2="74" stroke="#6a4818" stroke-width="0.8"/>
+  <circle cx="50" cy="73" r="1.5" fill="#ffe48a"/>
+
+  <ellipse cx="150" cy="92" rx="14" ry="9" fill="url(#sGold)"/>
+  <line x1="150" y1="83" x2="150" y2="74" stroke="#6a4818" stroke-width="0.8"/>
+  <circle cx="150" cy="73" r="1.5" fill="#ffe48a"/>
+
+  <!-- Minarets (tall thin towers at corners) -->
+  <!-- Left minaret -->
+  <polygon points="22,148 30,144 30,60 22,64" fill="url(#sSandRight)"/>
+  <polygon points="22,148 14,144 14,60 22,64" fill="url(#sSandLeft)"/>
+  <polygon points="22,60 30,64 22,68 14,64" fill="url(#sSandTop)"/>
+  <!-- Mini balcony -->
+  <polygon points="14,80 30,80 30,84 14,84" fill="#8a6818"/>
+  <!-- Small dome cap -->
+  <ellipse cx="22" cy="58" rx="8" ry="6" fill="url(#sGold)"/>
+  <polygon points="22,40 25,55 22,58 19,55" fill="url(#sGold)"/>
+  <circle cx="22" cy="38" r="1.5" fill="#ffe48a"/>
+
+  <!-- Right minaret -->
+  <polygon points="178,148 170,144 170,60 178,64" fill="url(#sSandLeft)"/>
+  <polygon points="178,148 186,144 186,60 178,64" fill="url(#sSandRight)"/>
+  <polygon points="178,60 170,64 178,68 186,64" fill="url(#sSandTop)"/>
+  <polygon points="170,80 186,80 186,84 170,84" fill="#8a6818"/>
+  <ellipse cx="178" cy="58" rx="8" ry="6" fill="url(#sGold)"/>
+  <polygon points="178,40 181,55 178,58 175,55" fill="url(#sGold)"/>
+  <circle cx="178" cy="38" r="1.5" fill="#ffe48a"/>
+
+  <!-- Sultan banner (gold) -->
+  <line x1="100" y1="50" x2="100" y2="32" stroke="#3a2818" stroke-width="1"/>
+  <polygon points="100,32 118,38 100,46" fill="#d4a64a"/>
+  <polygon points="100,32 118,38 100,40" fill="#8a6818" opacity="0.5"/>
+</svg>

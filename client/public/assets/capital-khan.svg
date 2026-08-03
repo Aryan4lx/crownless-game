@@ -1,0 +1,134 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="hLeatherTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c89868"/>
+      <stop offset="100%" stop-color="#906838"/>
+    </linearGradient>
+    <linearGradient id="hLeatherLeft" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#80582a"/>
+      <stop offset="100%" stop-color="#482818"/>
+    </linearGradient>
+    <linearGradient id="hLeatherRight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#6a4818"/>
+      <stop offset="100%" stop-color="#301810"/>
+    </linearGradient>
+    <linearGradient id="hWoodTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7a5232"/>
+      <stop offset="100%" stop-color="#4a3018"/>
+    </linearGradient>
+    <linearGradient id="hAmber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e8a85a"/>
+      <stop offset="50%" stop-color="#c08850"/>
+      <stop offset="100%" stop-color="#684018"/>
+    </linearGradient>
+    <radialGradient id="hTentRoof" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#d8a878"/>
+      <stop offset="60%" stop-color="#a87848"/>
+      <stop offset="100%" stop-color="#684828"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Foundation (wooden stockade base) -->
+  <polygon points="35,162 100,192 165,162 165,150 100,180 35,150" fill="#3a2818"/>
+  <polygon points="35,150 100,180 100,192 35,162" fill="url(#hLeatherLeft)"/>
+  <polygon points="100,180 165,150 165,162 100,192" fill="url(#hLeatherRight)"/>
+  <!-- Wooden plank texture on base -->
+  <line x1="55" y1="158" x2="65" y2="170" stroke="#2a1808" stroke-width="0.5"/>
+  <line x1="75" y1="166" x2="85" y2="178" stroke="#2a1808" stroke-width="0.5"/>
+  <line x1="125" y1="166" x2="135" y2="178" stroke="#2a1808" stroke-width="0.5"/>
+  <line x1="145" y1="158" x2="155" y2="170" stroke="#2a1808" stroke-width="0.5"/>
+
+  <!-- Outer wooden palisade ring (low wall) -->
+  <polygon points="100,150 158,124 158,118 100,144 42,118 42,124" fill="url(#hWoodTop)"/>
+  <polygon points="42,118 100,144 100,150 42,124" fill="#3a2818"/>
+  <polygon points="100,144 158,118 158,124 100,150" fill="#2a1808"/>
+  <!-- Vertical log texture -->
+  <line x1="50" y1="116" x2="50" y2="126" stroke="#1a0808" stroke-width="0.6"/>
+  <line x1="62" y1="120" x2="62" y2="132" stroke="#1a0808" stroke-width="0.6"/>
+  <line x1="74" y1="124" x2="74" y2="138" stroke="#1a0808" stroke-width="0.6"/>
+  <line x1="126" y1="124" x2="126" y2="138" stroke="#1a0808" stroke-width="0.6"/>
+  <line x1="138" y1="120" x2="138" y2="132" stroke="#1a0808" stroke-width="0.6"/>
+  <line x1="150" y1="116" x2="150" y2="126" stroke="#1a0808" stroke-width="0.6"/>
+  <!-- Pointed tops on logs -->
+  <polygon points="48,116 50,112 52,116" fill="#3a2818"/>
+  <polygon points="60,120 62,116 64,120" fill="#3a2818"/>
+  <polygon points="72,124 74,120 76,124" fill="#3a2818"/>
+  <polygon points="124,124 126,120 128,124" fill="#3a2818"/>
+  <polygon points="136,120 138,116 140,120" fill="#3a2818"/>
+  <polygon points="148,116 150,112 152,116" fill="#3a2818"/>
+
+  <!-- Main pavilion body (octagonal-ish) -->
+  <polygon points="100,148 148,124 148,90 100,114" fill="url(#hLeatherRight)"/>
+  <polygon points="100,148 52,124 52,90 100,114" fill="url(#hLeatherLeft)"/>
+  <polygon points="100,90 148,114 100,138 52,114" fill="url(#hLeatherTop)"/>
+
+  <!-- Tent roof (large conical/domed) -->
+  <ellipse cx="100" cy="90" rx="55" ry="22" fill="url(#hTentRoof)"/>
+  <!-- Roof ribs (tent poles underneath) -->
+  <path d="M 100,68 L 100,148" stroke="#684828" stroke-width="0.6" fill="none" opacity="0.6"/>
+  <path d="M 60,72 L 80,140" stroke="#684828" stroke-width="0.5" fill="none" opacity="0.5"/>
+  <path d="M 140,72 L 120,140" stroke="#684828" stroke-width="0.5" fill="none" opacity="0.5"/>
+  <path d="M 50,82 L 65,130" stroke="#684828" stroke-width="0.4" fill="none" opacity="0.4"/>
+  <path d="M 150,82 L 135,130" stroke="#684828" stroke-width="0.4" fill="none" opacity="0.4"/>
+
+  <!-- Roof cap / smoke hole -->
+  <ellipse cx="100" cy="68" rx="10" ry="4" fill="#3a2818"/>
+  <ellipse cx="100" cy="66" rx="8" ry="3" fill="#1a0808"/>
+
+  <!-- Smoke wisp -->
+  <path d="M 100,66 Q 102,55 100,45 Q 98,38 102,28" stroke="#a89888" stroke-width="2" fill="none" opacity="0.4"/>
+  <path d="M 100,66 Q 104,55 102,45 Q 100,38 104,30" stroke="#a89888" stroke-width="1.5" fill="none" opacity="0.3"/>
+
+  <!-- Central spire/finial (golden eagle standard) -->
+  <line x1="100" y1="66" x2="100" y2="40" stroke="#3a2818" stroke-width="1.5"/>
+  <circle cx="100" cy="38" r="3" fill="url(#hAmber)"/>
+  <!-- Eagle silhouette -->
+  <polygon points="100,30 96,38 100,42 104,38" fill="url(#hAmber)"/>
+  <polygon points="92,34 96,38 92,40" fill="url(#hAmber)"/>
+  <polygon points="108,34 104,38 108,40" fill="url(#hAmber)"/>
+  <circle cx="100" cy="28" r="1.5" fill="#e8a85a"/>
+
+  <!-- Curtained entrance (open tent flap) -->
+  <path d="M 86,118 L 100,108 L 114,118 L 114,148 L 86,148 Z" fill="#3a2818"/>
+  <path d="M 90,122 L 100,114 L 100,148 L 90,148 Z" fill="#1a0808" opacity="0.7"/>
+  <path d="M 110,122 L 100,114 L 100,148 L 110,148 Z" fill="#1a0808" opacity="0.7"/>
+  <!-- Gold trim on entrance -->
+  <path d="M 86,118 L 100,108 L 114,118" stroke="#c08850" stroke-width="0.8" fill="none"/>
+
+  <!-- Side decorations (amber studs / brass rivets) -->
+  <circle cx="60" cy="118" r="1.5" fill="#e8a85a"/>
+  <circle cx="60" cy="128" r="1.5" fill="#e8a85a"/>
+  <circle cx="60" cy="138" r="1.5" fill="#e8a85a"/>
+  <circle cx="140" cy="118" r="1.5" fill="#e8a85a"/>
+  <circle cx="140" cy="128" r="1.5" fill="#e8a85a"/>
+  <circle cx="140" cy="138" r="1.5" fill="#e8a85a"/>
+
+  <!-- Smaller side tents (camp followers) -->
+  <!-- Left small tent -->
+  <polygon points="22,148 30,142 30,128 22,134" fill="url(#hLeatherRight)"/>
+  <polygon points="22,148 14,142 14,128 22,134" fill="url(#hLeatherLeft)"/>
+  <ellipse cx="22" cy="128" rx="9" ry="4" fill="url(#hTentRoof)"/>
+  <polygon points="22,128 24,120 22,124 20,120" fill="url(#hAmber)"/>
+
+  <!-- Right small tent -->
+  <polygon points="178,148 170,142 170,128 178,134" fill="url(#hLeatherLeft)"/>
+  <polygon points="178,148 186,142 186,128 178,134" fill="url(#hLeatherRight)"/>
+  <ellipse cx="178" cy="128" rx="9" ry="4" fill="url(#hTentRoof)"/>
+  <polygon points="178,128 180,120 178,124 176,120" fill="url(#hAmber)"/>
+
+  <!-- Banner poles flanking entrance -->
+  <line x1="78" y1="148" x2="78" y2="100" stroke="#3a2818" stroke-width="1"/>
+  <polygon points="78,100 92,106 78,114" fill="#c08850"/>
+  <polygon points="78,100 92,106 78,108" fill="#684018" opacity="0.6"/>
+
+  <line x1="122" y1="148" x2="122" y2="100" stroke="#3a2818" stroke-width="1"/>
+  <polygon points="122,100 108,106 122,114" fill="#c08850"/>
+  <polygon points="122,100 108,106 122,108" fill="#684018" opacity="0.6"/>
+
+  <!-- Khan banner (amber, on central spire) -->
+  <line x1="100" y1="40" x2="100" y2="22" stroke="#3a2818" stroke-width="1"/>
+  <polygon points="100,22 118,28 100,36" fill="#c08850"/>
+  <polygon points="100,22 118,28 100,30" fill="#684018" opacity="0.6"/>
+  <!-- Eagle mark on banner -->
+  <polygon points="106,26 110,29 106,32" fill="#3a2818"/>
+</svg>

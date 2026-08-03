@@ -1,0 +1,107 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tStoneTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d8d4cc"/>
+      <stop offset="100%" stop-color="#a8a098"/>
+    </linearGradient>
+    <linearGradient id="tStoneLeft" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#888078"/>
+      <stop offset="100%" stop-color="#484038"/>
+    </linearGradient>
+    <linearGradient id="tStoneRight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#787068"/>
+      <stop offset="100%" stop-color="#383028"/>
+    </linearGradient>
+    <linearGradient id="tRedTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d84858"/>
+      <stop offset="100%" stop-color="#b8334a"/>
+    </linearGradient>
+    <linearGradient id="tRedLeft" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#a82848"/>
+      <stop offset="100%" stop-color="#581828"/>
+    </linearGradient>
+    <linearGradient id="tRedRight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#882838"/>
+      <stop offset="100%" stop-color="#381818"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Snow dust base -->
+  <ellipse cx="100" cy="180" rx="80" ry="10" fill="#e8e4dc" opacity="0.4"/>
+
+  <!-- Foundation slab -->
+  <polygon points="35,162 100,192 165,162 165,150 100,180 35,150" fill="#686058"/>
+  <polygon points="35,150 100,180 100,192 35,162" fill="url(#tStoneLeft)"/>
+  <polygon points="100,180 165,150 165,162 100,192" fill="url(#tStoneRight)"/>
+
+  <!-- Outer wall ring (defensive perimeter) -->
+  <polygon points="100,150 158,124 158,118 100,144 42,118 42,124" fill="url(#tStoneTop)"/>
+  <polygon points="42,118 100,144 100,150 42,124" fill="url(#tStoneLeft)"/>
+  <polygon points="100,144 158,118 158,124 100,150" fill="url(#tStoneRight)"/>
+  <!-- Crenellations -->
+  <rect x="48" y="112" width="6" height="8" fill="#888078"/>
+  <rect x="68" y="120" width="6" height="8" fill="#888078"/>
+  <rect x="128" y="120" width="6" height="8" fill="#787068"/>
+  <rect x="148" y="112" width="6" height="8" fill="#787068"/>
+
+  <!-- Main keep (central square tower) -->
+  <polygon points="100,140 145,118 145,68 100,90" fill="url(#tStoneRight)"/>
+  <polygon points="100,140 55,118 55,68 100,90" fill="url(#tStoneLeft)"/>
+  <polygon points="100,68 145,90 100,112 55,90" fill="url(#tStoneTop)"/>
+
+  <!-- Red roof on keep (pyramidal) -->
+  <polygon points="100,68 145,90 100,55 55,90" fill="url(#tRedTop)"/>
+  <polygon points="55,90 100,55 100,68 55,90" fill="url(#tRedLeft)"/>
+  <polygon points="100,55 145,90 100,68" fill="url(#tRedRight)"/>
+
+  <!-- Snow cap on roof -->
+  <polygon points="100,55 110,60 100,65 90,60" fill="#f8f4ec" opacity="0.85"/>
+  <polygon points="80,72 88,75 80,78" fill="#f8f4ec" opacity="0.7"/>
+  <polygon points="120,72 112,75 120,78" fill="#f8f4ec" opacity="0.7"/>
+
+  <!-- Windows (tall arched) -->
+  <path d="M 75,100 L 75,118 L 80,118 L 80,100 Q 77.5,96 75,100 Z" fill="#1a1a22"/>
+  <path d="M 120,100 L 120,118 L 125,118 L 125,100 Q 122.5,96 120,100 Z" fill="#1a1a22"/>
+  <rect x="93" y="100" width="5" height="14" fill="#1a1a22"/>
+  <rect x="102" y="100" width="5" height="14" fill="#1a1a22"/>
+
+  <!-- Central spire (over the keep) -->
+  <line x1="100" y1="55" x2="100" y2="32" stroke="#581828" stroke-width="1.2"/>
+  <polygon points="100,18 106,42 100,48 94,42" fill="url(#tRedTop)"/>
+  <polygon points="100,18 100,48 94,42" fill="url(#tRedLeft)"/>
+  <circle cx="100" cy="14" r="2.5" fill="#d4a64a"/>
+
+  <!-- Corner towers (visible two - octagonal, pointed red roofs) -->
+  <!-- Left tower -->
+  <polygon points="42,118 55,112 55,72 42,78" fill="url(#tStoneRight)"/>
+  <polygon points="42,118 29,112 29,72 42,78" fill="url(#tStoneLeft)"/>
+  <polygon points="42,72 55,78 42,84 29,78" fill="url(#tStoneTop)"/>
+  <!-- Tower roof -->
+  <polygon points="42,72 55,78 42,52 29,78" fill="url(#tRedTop)"/>
+  <polygon points="29,78 42,52 42,72" fill="url(#tRedLeft)"/>
+  <polygon points="42,52 55,78 42,72" fill="url(#tRedRight)"/>
+  <polygon points="42,52 46,57 42,60 38,57" fill="#f8f4ec" opacity="0.85"/>
+  <!-- Tower finial -->
+  <line x1="42" y1="52" x2="42" y2="42" stroke="#581828" stroke-width="0.8"/>
+  <circle cx="42" cy="40" r="1.5" fill="#d4a64a"/>
+
+  <!-- Right tower -->
+  <polygon points="158,118 145,112 145,72 158,78" fill="url(#tStoneLeft)"/>
+  <polygon points="158,118 171,112 171,72 158,78" fill="url(#tStoneRight)"/>
+  <polygon points="158,72 145,78 158,84 171,78" fill="url(#tStoneTop)"/>
+  <polygon points="158,72 171,78 158,52 145,78" fill="url(#tRedTop)"/>
+  <polygon points="145,78 158,52 158,72" fill="url(#tRedLeft)"/>
+  <polygon points="158,52 171,78 158,72" fill="url(#tRedRight)"/>
+  <polygon points="158,52 162,57 158,60 154,57" fill="#f8f4ec" opacity="0.85"/>
+  <line x1="158" y1="52" x2="158" y2="42" stroke="#581828" stroke-width="0.8"/>
+  <circle cx="158" cy="40" r="1.5" fill="#d4a64a"/>
+
+  <!-- Snow patches on stone -->
+  <ellipse cx="70" cy="135" rx="6" ry="2" fill="#f8f4ec" opacity="0.7"/>
+  <ellipse cx="125" cy="138" rx="6" ry="2" fill="#f8f4ec" opacity="0.7"/>
+
+  <!-- Tsar banner (crimson) -->
+  <line x1="100" y1="32" x2="100" y2="18" stroke="#3a1a22" stroke-width="1"/>
+  <polygon points="100,18 118,24 100,32" fill="#b8334a"/>
+  <polygon points="100,18 118,24 100,26" fill="#581828" opacity="0.6"/>
+</svg>

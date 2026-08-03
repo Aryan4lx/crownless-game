@@ -1,0 +1,101 @@
+<svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="crownAura" cx="50%" cy="55%" r="50%">
+      <stop offset="0%" stop-color="#ffe8a8" stop-opacity="0.7"/>
+      <stop offset="30%" stop-color="#d4a64a" stop-opacity="0.35"/>
+      <stop offset="70%" stop-color="#d4a64a" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#d4a64a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="cMarbleTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbf5e8"/>
+      <stop offset="100%" stop-color="#e8dfc8"/>
+    </linearGradient>
+    <linearGradient id="cMarbleLeft" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#d8cfb8"/>
+      <stop offset="100%" stop-color="#a89878"/>
+    </linearGradient>
+    <linearGradient id="cMarbleRight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#c8bfa8"/>
+      <stop offset="100%" stop-color="#887858"/>
+    </linearGradient>
+    <linearGradient id="cGoldDome" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe48a"/>
+      <stop offset="50%" stop-color="#d4a64a"/>
+      <stop offset="100%" stop-color="#8a6818"/>
+    </linearGradient>
+    <linearGradient id="cGoldSide" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#d4a64a"/>
+      <stop offset="100%" stop-color="#6a4818"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Aura glow behind -->
+  <ellipse cx="120" cy="135" rx="115" ry="85" fill="url(#crownAura)"/>
+
+  <!-- Pedestal dais (hexagonal) -->
+  <polygon points="55,178 120,210 185,178 185,158 120,188 55,158" fill="url(#cMarbleTop)"/>
+  <polygon points="55,158 120,188 120,210 55,178" fill="url(#cMarbleLeft)"/>
+  <polygon points="120,188 185,158 185,178 120,210" fill="url(#cMarbleRight)"/>
+  <!-- Steps -->
+  <polygon points="80,168 120,188 160,168 160,158 120,178 80,158" fill="#fbf5e8" opacity="0.6"/>
+
+  <!-- Main citadel body -->
+  <polygon points="120,160 178,134 178,88 120,114" fill="url(#cMarbleRight)"/>
+  <polygon points="120,160 62,134 62,88 120,114" fill="url(#cMarbleLeft)"/>
+  <polygon points="120,88 178,114 120,140 62,114" fill="url(#cMarbleTop)"/>
+
+  <!-- Arched windows -->
+  <path d="M 88,118 Q 93,110 98,118 L 98,134 L 88,134 Z" fill="#2a2218" opacity="0.85"/>
+  <path d="M 142,118 Q 147,110 152,118 L 152,134 L 142,134 Z" fill="#2a2218" opacity="0.85"/>
+  <path d="M 110,124 Q 114,118 118,124 L 118,138 L 110,138 Z" fill="#ffe48a" opacity="0.6"/>
+  <path d="M 122,124 Q 126,118 130,124 L 130,138 L 122,138 Z" fill="#ffe48a" opacity="0.6"/>
+
+  <!-- Central tower (raised) -->
+  <polygon points="120,108 152,92 152,52 120,68" fill="url(#cMarbleRight)"/>
+  <polygon points="120,108 88,92 88,52 120,68" fill="url(#cMarbleLeft)"/>
+  <polygon points="120,52 152,68 120,84 88,68" fill="url(#cMarbleTop)"/>
+
+  <!-- Ornate banding on tower -->
+  <polygon points="120,68 152,52 152,55 120,71" fill="url(#cGoldSide)" opacity="0.8"/>
+  <polygon points="120,68 88,52 88,55 120,71" fill="#8a6818" opacity="0.6"/>
+
+  <!-- Golden dome -->
+  <ellipse cx="120" cy="52" rx="34" ry="24" fill="url(#cGoldDome)"/>
+  <ellipse cx="120" cy="52" rx="34" ry="24" fill="none" stroke="#6a4818" stroke-width="0.8"/>
+  <!-- Dome ribs -->
+  <path d="M 120,28 Q 120,40 120,76" stroke="#8a6818" stroke-width="0.5" fill="none" opacity="0.6"/>
+  <path d="M 100,32 Q 110,46 110,72" stroke="#8a6818" stroke-width="0.5" fill="none" opacity="0.4"/>
+  <path d="M 140,32 Q 130,46 130,72" stroke="#8a6818" stroke-width="0.5" fill="none" opacity="0.4"/>
+
+  <!-- Finial spire -->
+  <line x1="120" y1="52" x2="120" y2="14" stroke="#6a4818" stroke-width="1.2"/>
+  <polygon points="120,2 124,22 120,26 116,22" fill="url(#cGoldDome)"/>
+  <circle cx="120" cy="8" r="2.5" fill="#ffe48a"/>
+
+  <!-- Pennants -->
+  <line x1="120" y1="14" x2="120" y2="-2" stroke="#3a3022" stroke-width="0.8"/>
+  <polygon points="120,-2 138,4 120,10" fill="#d4a64a"/>
+  <polygon points="120,-2 102,4 120,10" fill="#b8334a"/>
+
+  <!-- Corner spires (visible two) -->
+  <polygon points="62,88 72,82 72,58 62,64" fill="url(#cMarbleRight)"/>
+  <polygon points="62,88 52,82 52,58 62,64" fill="url(#cMarbleLeft)"/>
+  <polygon points="62,58 72,64 62,70 52,64" fill="url(#cMarbleTop)"/>
+  <ellipse cx="62" cy="58" rx="10" ry="7" fill="url(#cGoldDome)"/>
+  <polygon points="62,38 65,55 62,58 59,55" fill="url(#cGoldDome)"/>
+
+  <polygon points="178,88 168,82 168,58 178,64" fill="url(#cMarbleLeft)"/>
+  <polygon points="178,88 188,82 188,58 178,64" fill="url(#cMarbleRight)"/>
+  <polygon points="178,58 168,64 178,70 188,64" fill="url(#cMarbleTop)"/>
+  <ellipse cx="178" cy="58" rx="10" ry="7" fill="url(#cGoldDome)"/>
+  <polygon points="178,38 181,55 178,58 175,55" fill="url(#cGoldDome)"/>
+
+  <!-- Magical glow particles -->
+  <circle cx="80" cy="100" r="2" fill="#ffe48a" opacity="0.9"/>
+  <circle cx="160" cy="105" r="1.5" fill="#ffe48a" opacity="0.7"/>
+  <circle cx="100" cy="80" r="1.5" fill="#ffe48a" opacity="0.6"/>
+  <circle cx="140" cy="85" r="2" fill="#ffe48a" opacity="0.8"/>
+  <circle cx="45" cy="135" r="1.5" fill="#ffe48a" opacity="0.6"/>
+  <circle cx="195" cy="140" r="1.5" fill="#ffe48a" opacity="0.7"/>
+  <circle cx="120" cy="180" r="1.5" fill="#ffe48a" opacity="0.5"/>
+</svg>
