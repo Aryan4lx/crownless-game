@@ -584,18 +584,29 @@ export default function WorldMap({ room }: { room: any }) {
       ctx.fillText('THE CROWN', cx, cy + 24);
       ctx.textBaseline = 'alphabetic';
 
-      // March paths (dashed line to target)
-      ctx.setLineDash([6, 6]);
-      ctx.lineWidth = 1.5;
+      // March lines — color-coded by intent (attack=red, move=faction)
       playersRef.current.forEach((p) => {
         if (!p.isMoving) return;
-        ctx.strokeStyle = FACTION_COLORS[p.faction] || '#888';
-        ctx.globalAlpha = 0.6;
+        const isAttack = p.attackTarget && p.attackTarget.length > 0;
+        ctx.strokeStyle = isAttack ? '#c02020' : (FACTION_COLORS[p.faction] || '#888');
+        ctx.globalAlpha = isAttack ? 0.7 : 0.4;
+        ctx.setLineDash(isAttack ? [6, 4] : [3, 5]);
+        ctx.lineWidth = isAttack ? 2 : 1;
         ctx.beginPath();
         ctx.moveTo(p.x, p.y);
         ctx.lineTo(p.tx, p.ty);
         ctx.stroke();
         ctx.globalAlpha = 1;
+
+        // Destination X marker
+        ctx.strokeStyle = isAttack ? '#c02020' : '#d4a64a';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([]);
+        const tx = p.tx, ty = p.ty;
+        ctx.beginPath();
+        ctx.moveTo(tx - 5, ty - 5); ctx.lineTo(tx + 5, ty + 5);
+        ctx.moveTo(tx - 5, ty + 5); ctx.lineTo(tx + 5, ty - 5);
+        ctx.stroke();
       });
       ctx.setLineDash([]);
 
@@ -604,6 +615,24 @@ export default function WorldMap({ room }: { room: any }) {
         const isMe = id === myId;
         const color = FACTION_COLORS[p.faction] || '#888';
         drawCastle(ctx, p.x, p.y, color, isMe);
+
+        // Army badge — show troop count above castle
+        if (p.army > 0) {
+          const armyLabel = `⚔️${p.army}`;
+          ctx.font = 'bold 10px sans-serif';
+          const aw = ctx.measureText(armyLabel).width + 8;
+          ctx.fillStyle = p.army >= 50 ? 'rgba(192,32,32,0.9)' : 'rgba(60,60,65,0.9)';
+          ctx.beginPath();
+          ctx.roundRect(p.x - aw / 2, p.y - 76, aw, 13, 7);
+          ctx.fill();
+          ctx.strokeStyle = p.army >= 50 ? '#f04040' : '#888';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.fillStyle = '#fff';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(armyLabel, p.x, p.y - 69);
+        }
 
         const build = buildProgress.find((b: any) => b.pid === id);
         if (build) {
