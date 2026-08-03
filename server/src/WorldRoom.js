@@ -27,6 +27,31 @@ const FACTION_BONUS = {
   khan:   { label: 'Steppe Horde', gold: 1.0, gather: 1.15, march: 1.25, research: 1.0 },
 };
 
+// Anti-cheat: per-session rate limits (ms between actions of each type)
+// If a client sends actions faster than this, the excess is silently dropped.
+// Tuned so a human playing normally never hits them, but a script spamming does.
+const RATE_LIMITS = {
+  move:    200,   // 5 moves/sec max (human click rate ~2/sec)
+  build:   1000,  // 1 build/sec
+  attack:  500,   // 2 attacks/sec
+  chat:    1500,  // ~40 msgs/min — fast chat, blocks spam bots
+  train:   300,   // ~3 trains/sec (training is already food-gated)
+  research: 1000, // 1 research/sec
+};
+const rateBuckets = new Map(); // sessionId -> { action: lastTimestamp }
+
+function rateLimited(sessionId, action) {
+  const now = Date.now();
+  let bucket = rateBuckets.get(sessionId);
+  if (!bucket) { bucket = {}; rateBuckets.set(sessionId, bucket); }
+  const limit = RATE_LIMITS[action];
+  if (limit && bucket[action] && (now - bucket[action]) < limit) {
+    return true; // RATE LIMITED — drop the action
+  }
+  bucket[action] = now;
+  return false;
+}
+
 // Camp tier definitions: difficulty + reward scaling
 const CAMP_TIERS = [
   { tier: 1, name: 'Raiders',   army: [18, 28],   lootMul: 1.0, xpMul: 1.0, respawn: 60000 },
@@ -115,6 +140,7 @@ export default class WorldRoom extends Room {
   }
 
   handleTrain(c) {
+    if (rateLimited(c.sessionId, 'train')) return;
     const p = this.state.players.get(c.sessionId);
     if (!p || p.barracksLvl < 1) return;
     const cost = 20 * (1 + p.army); // food, scales with army size
@@ -126,6 +152,7 @@ export default class WorldRoom extends Room {
   }
 
   handleChat(c, d) {
+    if (rateLimited(c.sessionId, 'chat')) return;
     const pid = c.sessionId;
     const player = this.state.players.get(pid);
     if (!player) return;
@@ -172,6 +199,7 @@ export default class WorldRoom extends Room {
   }
 
   handleBuild(c, d) {
+    if (rateLimited(c.sessionId, 'build')) return;
     const p = this.state.players.get(c.sessionId);
     if (!p || !BUILDINGS[d.kind]) return;
     const b = BUILDINGS[d.kind];
@@ -185,6 +213,7 @@ export default class WorldRoom extends Room {
   }
 
   handleResearch(c) {
+    if (rateLimited(c.sessionId, 'research')) return;
     const p = this.state.players.get(c.sessionId);
     if (!p || p.smithyLvl < 1) return;
     const fb = FACTION_BONUS[p.faction] || FACTION_BONUS.sultan;
@@ -200,6 +229,7 @@ export default class WorldRoom extends Room {
   }
 
   move(c, d) {
+    if (rateLimited(c.sessionId, 'move')) return;
     const p = this.state.players.get(c.sessionId);
     if (!p) return;
     p.targetX = Math.max(0, Math.min(1024, d.x));
@@ -214,6 +244,7 @@ export default class WorldRoom extends Room {
   }
 
   attack(c, d) {
+    if (rateLimited(c.sessionId, 'attack')) return;
     const acc = this.state.players.get(c.sessionId);
     if (!acc || acc.army <= 0) return;
     const def = this.state.players.get(d.target);
@@ -360,5 +391,6 @@ export default class WorldRoom extends Room {
       console.log(`[DB] saved ${p.name} on disconnect`);
     }
     this.state.players.delete(c.sessionId);
+    rateBuckets.delete(c.sessionId); // clean up rate-limit memory
   }
 }
