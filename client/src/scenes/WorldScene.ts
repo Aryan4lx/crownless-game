@@ -3,6 +3,12 @@ import { THEME, FACTION_COLOR } from '../theme.js';
 
 const MAP_SIZE = 1024;
 
+const FACTION_COLORS: Record<string, number> = {
+  sultan: THEME.gold,
+  tsar: 0xb8334a,
+  king: 0x8a2a6a,
+  khan: 0xc02020,
+};
 export default class WorldScene extends Phaser.Scene {
   room: any;
   myId: string = '';
@@ -10,6 +16,7 @@ export default class WorldScene extends Phaser.Scene {
   campObjects: Map<string, any> = new Map();
   nodeObjects: Map<string, any> = new Map();
   crownGlow: any = null;
+  marchObjects: Map<string, any> = new Map();
 
   constructor() {
     super({ key: 'WorldScene' });
@@ -218,6 +225,55 @@ export default class WorldScene extends Phaser.Scene {
         this.syncPlayer(id, player);
       });
     }
+
+    // Sync marches
+    this.marchObjects.forEach((obj: any, id: string) => {
+      const march = this.room?.state?.marches?.get(id);
+      if (!march) {
+        obj.circle.destroy();
+        obj.fleetIcon?.destroy();
+        if (obj.line) obj.line.destroy();
+        this.marchObjects.delete(id);
+        return;
+      }
+      obj.x = march.x;
+      obj.y = march.y;
+      obj.circle.setPosition(march.x, march.y);
+      obj.fleetIcon?.setPosition(march.x, march.y);
+      const color = FACTION_COLORS[march.faction] || THEME.gold;
+      obj.circle.setFillStyle(color);
+      if (obj.targetX !== march.toX || obj.targetY !== march.toY) {
+        if (obj.line) obj.line.destroy();
+        const dx = march.toX - march.x;
+        const dy = march.toY - march.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 1) {
+          const line = this.add.graphics();
+          line.lineStyle(2, color, 0.4);
+          line.lineBetween(march.x, march.y, march.toX, march.toY);
+          line.setDepth(4);
+          obj.line = line;
+        }
+      }
+      obj.targetX = march.toX;
+      obj.targetY = march.toY;
+    });
+
+    // Create new marches
+    (this.room?.state?.marches || new Map()).forEach((march: any, id: string) => {
+      if (!this.marchObjects.has(id)) {
+        const color = FACTION_COLORS[march.faction] || THEME.gold;
+        const circle = this.add.circle(march.x, march.y, 10, color);
+        circle.setDepth(5);
+        const fleetIcon = this.add.text(march.x, march.y, '✈️', {
+          font: '12px serif',
+          color: '#ffffff',
+          align: 'center'
+        }).setOrigin(0.5);
+        fleetIcon.setDepth(6);
+        this.marchObjects.set(id, { circle, fleetIcon, line: null, targetX: march.toX, targetY: march.toY });
+      }
+    });
   }
 
   syncCamp(id: string, camp: any) {

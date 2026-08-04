@@ -1,5 +1,5 @@
 import { Room } from 'colyseus';
-import { WorldState, Player, ResourceNode, Camp } from './Schema.js';
+import { WorldState, Player, ResourceNode, Camp, March } from './Schema.js';
 import { loadPlayer, savePlayer } from './db.js';
 
 const BUILDINGS = {
@@ -18,6 +18,13 @@ const LEVEL_FIELD = {
 };
 
 const PENDING = new Map();
+
+// Rock-paper-scissors combat: Infantry > Cavalry > Archers > Infantry
+// Each type deals 1.5x damage to its counter, takes 0.6x from its counter
+const TROOP_TYPES = ['infantry', 'archers', 'cavalry'];
+const COUNTERS = { infantry: 'cavalry', archers: 'infantry', cavalry: 'archers' };
+const TROOP_LABELS = { infantry: 'Spearman', archers: 'Archer', cavalry: 'Horseman' };
+const TROOP_ICONS = { infantry: '🛡️', archers: '🏹', cavalry: '🐎' };
 
 // Faction asymmetries: economic / military / speed identity
 const FACTION_BONUS = {
@@ -118,6 +125,8 @@ export default class WorldRoom extends Room {
     this.clock.setInterval(() => this.processBuilds(), 500);
     this.clock.setInterval(() => this.broadcast('rank', this.getRankings()), 2000);
     this.clock.setInterval(() => this.state.players.forEach((p) => this.tickPlayer(p)), 250);
+    // Move march entities toward targets
+    this.clock.setInterval(() => this.tickMarches(), 100);
     // Auto-save all players every 30s
     this.clock.setInterval(() => {
       this.state.players.forEach((p) => savePlayer(p));
@@ -167,7 +176,7 @@ export default class WorldRoom extends Room {
     this.onMessage('attack', (c, d) => this.attack(c, d));
     this.onMessage('research', (c) => this.handleResearch(c));
     this.onMessage('chat', (c, d) => this.handleChat(c, d));
-    this.onMessage('train', (c) => this.handleTrain(c));
+    this.onMessage('train', (c, d) => this.handleTrain(c, d));
     this.onMessage('claimCrown', (c) => this.claimCrown(c));
   }
 
@@ -202,16 +211,19 @@ export default class WorldRoom extends Room {
     this.broadcast('battleLog', this.state.battleLog.slice());
   }
 
-  handleTrain(c) {
+  handleTrain(c, d) {
     if (rateLimited(c.sessionId, 'train')) return;
     const p = this.state.players.get(c.sessionId);
     if (!p || p.barracksLvl < 1) return;
-    const cost = 20 * (1 + p.army); // food, scales with army size
+    const troopType = (d?.troopType && TROOP_TYPES.includes(d.troopType)) ? d.troopType : 'infantry';
+    const totalArmy = p.infantry + p.archers + p.cavalry;
+    const cost = 20 * (1 + totalArmy); // food, scales with army size
     if (p.food < cost) return;
     p.food -= cost;
-    p.army += 1;
+    p[troopType] += 1;
+    p.army = p.infantry + p.archers + p.cavalry;
     this.gainXP(p, 5);
-    c.send('train', { army: p.army });
+    c.send('train', { army: p.army, troopType });
   }
 
   handleChat(c, d) {
@@ -310,25 +322,223 @@ export default class WorldRoom extends Room {
     if (rateLimited(c.sessionId, 'attack')) return;
     const acc = this.state.players.get(c.sessionId);
     if (!acc || acc.army <= 0) return;
+    // Can only have 1 active march
+    const hasMarch = Array.from(this.state.marches.values()).some(m => m.ownerId === c.sessionId && !m.returning);
+    if (hasMarch) {
+      c.send('battle', { text: '⚔️ You already have a marching army. Wait for it to return.' });
+      return;
+    }
+    const fb = FACTION_BONUS[acc.faction] || FACTION_BONUS.sultan;
+    let targetX, targetY, targetType, targetId;
     const def = this.state.players.get(d.target);
     if (def) {
       if (acc === def) return;
-      const dist = Math.hypot(def.x - acc.x, def.y - acc.y);
-      if (dist > 600) return;
-      acc.attackTarget = d.target;
-      acc.targetX = def.x;
-      acc.targetY = def.y;
+      targetType = 'player';
+      targetId = d.target;
+      targetX = def.x;
+      targetY = def.y;
     } else {
       const camp = this.state.camps.get(d.target);
       if (!camp || !camp.alive) return;
-      const dist = Math.hypot(camp.x - acc.x, camp.y - acc.y);
-      if (dist > 600) return;
-      acc.attackTarget = d.target;
-      acc.targetX = camp.x;
-      acc.targetY = camp.y;
+      targetType = 'camp';
+      targetId = d.target;
+      targetX = camp.x;
+      targetY = camp.y;
     }
-    acc.isMoving = true;
-    acc.gatheringNodeId = '';
+    const dist = Math.hypot(targetX - acc.x, targetY - acc.y);
+    if (dist > 800) return;
+    // Create march entity — all troops go
+    const march = new March();
+    march.id = `march-${c.sessionId}-${Date.now()}`;
+    march.ownerId = c.sessionId;
+    march.ownerName = acc.name;
+    march.faction = acc.faction;
+    march.fromX = acc.x;
+    march.fromY = acc.y;
+    march.toX = targetX;
+    march.toY = targetY;
+    march.x = acc.x;
+    march.y = acc.y;
+    march.targetId = targetId;
+    march.targetType = targetType;
+    march.infantry = acc.infantry;
+    march.archers = acc.archers;
+    march.cavalry = acc.cavalry;
+    march.totalArmy = acc.army;
+    march.speed = 8 * fb.march;
+    march.createdAt = Date.now();
+    // Troops leave the castle
+    acc.infantry = 0;
+    acc.archers = 0;
+    acc.cavalry = 0;
+    acc.army = 0;
+    this.state.marches.set(march.id, march);
+  }
+
+  // Move marches toward targets, resolve on arrival
+  tickMarches() {
+    const toDelete = [];
+    this.state.marches.forEach((march) => {
+      if (march.arrived) return;
+      const dx = march.toX - march.x;
+      const dy = march.toY - march.y;
+      const dist = Math.hypot(dx, dy);
+      const step = march.speed;
+      if (dist <= step) {
+        march.x = march.toX;
+        march.y = march.toY;
+        march.arrived = true;
+        if (!march.returning) {
+          this.resolveMarchBattle(march);
+        } else {
+          // Survivors returned home
+          const owner = this.state.players.get(march.ownerId);
+          if (owner) {
+            owner.infantry += march.infantry;
+            owner.archers += march.archers;
+            owner.cavalry += march.cavalry;
+            owner.army = owner.infantry + owner.archers + owner.cavalry;
+          }
+          toDelete.push(march.id);
+        }
+      } else {
+        march.x += (dx / dist) * step;
+        march.y += (dy / dist) * step;
+      }
+    });
+    toDelete.forEach(id => this.state.marches.delete(id));
+  }
+
+  // Rock-paper-scissors combat resolution
+  // Effective power: each troop type gets 1.5x vs its counter, 0.6x vs its predator
+  resolveMarchBattle(march) {
+    let msg;
+    const atkI = march.infantry, atkA = march.archers, atkC = march.cavalry;
+    const def = this.state.players.get(march.targetId);
+    if (def) {
+      // --- PvP combat ---
+      const defI = def.infantry, defA = def.archers, defC = def.cavalry;
+      // Calculate effective attack power with RPS multipliers
+      const atkPower = this.rpsPower(atkI, atkA, atkC, defI, defA, defC);
+      const defPower = this.rpsPower(defI, defA, defC, atkI, atkA, atkC);
+      const totalDef = defI + defA + defC;
+      if (atkPower > defPower) {
+        // Attacker wins — ratio of survivors
+        const ratio = 1 - (defPower / atkPower) * 0.6;
+        const surviveI = Math.round(atkI * ratio);
+        const surviveA = Math.round(atkA * ratio);
+        const surviveC = Math.round(atkC * ratio);
+        march.infantry = surviveI;
+        march.archers = surviveA;
+        march.cavalry = surviveC;
+        march.totalArmy = surviveI + surviveA + surviveC;
+        const loot = Math.round(def.gold * 0.2);
+        def.infantry = 0; def.archers = 0; def.cavalry = 0; def.army = 0;
+        def.gold -= loot;
+        // Send loot home with survivors
+        const owner = this.state.players.get(march.ownerId);
+        if (owner) owner.gold += loot;
+        this.gainXP(owner, 40);
+        // Crown drops if holder is zeroed
+        if (this.state.crownHolder === def.name) {
+          this.state.crownHolder = '';
+          this.state.crownClaimedAt = 0;
+          this.pushBattleLog(`👑 ${def.name} lost The Crown in defeat!`);
+          this.broadcast('battle', { text: `👑 ${def.name} lost The Crown!` });
+        }
+        msg = `⚔️ ${march.ownerName} defeated ${def.name}! (+${loot}g)`;
+        // Start return march
+        this.startReturnMarch(march);
+      } else {
+        // Defender wins — attacker shattered
+        const ratio = 1 - (atkPower / defPower) * 0.6;
+        def.infantry = Math.round(defI * ratio);
+        def.archers = Math.round(defA * ratio);
+        def.cavalry = Math.round(defC * ratio);
+        def.army = def.infantry + def.archers + def.cavalry;
+        march.infantry = 0; march.archers = 0; march.cavalry = 0;
+        march.totalArmy = 0;
+        const owner = this.state.players.get(march.ownerId);
+        this.gainXP(owner, 15);
+        msg = `🛡️ ${def.name} repelled ${march.ownerName}!`;
+        // No survivors to return — delete march
+        this.state.marches.delete(march.id);
+      }
+    } else {
+      // --- Camp combat ---
+      const camp = this.state.camps.get(march.targetId);
+      if (!camp || !camp.alive) { this.state.marches.delete(march.id); return; }
+      const tierSpec = CAMP_TIERS[(camp.tier || 1) - 1] || CAMP_TIERS[0];
+      const campPower = camp.army;
+      const atkPower = march.totalArmy * 1.1; // players slightly stronger than camps
+      if (atkPower > campPower) {
+        const ratio = Math.max(0.3, 1 - (campPower / atkPower) * 0.5);
+        march.infantry = Math.round(atkI * ratio);
+        march.archers = Math.round(atkA * ratio);
+        march.cavalry = Math.round(atkC * ratio);
+        march.totalArmy = march.infantry + march.archers + march.cavalry;
+        camp.alive = false;
+        camp.army = 0;
+        camp.respawnAt = Date.now() + tierSpec.respawn;
+        const owner = this.state.players.get(march.ownerId);
+        if (owner) {
+          owner.gold += camp.lootGold;
+          owner.wood += camp.lootWood;
+          this.gainXP(owner, Math.round(50 * tierSpec.xpMul));
+        }
+        msg = `⚔️ ${march.ownerName} razed ${camp.name}! +${camp.lootGold}g +${camp.lootWood}w`;
+        this.startReturnMarch(march);
+      } else {
+        const ratio = Math.max(0.2, 1 - (atkPower / campPower) * 0.5);
+        camp.army = Math.round(campPower * ratio);
+        march.infantry = Math.round(atkI * 0.3);
+        march.archers = Math.round(atkA * 0.3);
+        march.cavalry = Math.round(atkC * 0.3);
+        march.totalArmy = march.infantry + march.archers + march.cavalry;
+        const owner = this.state.players.get(march.ownerId);
+        this.gainXP(owner, Math.round(15 * tierSpec.xpMul));
+        msg = `🛡️ ${camp.name} repelled ${march.ownerName}!`;
+        if (march.totalArmy > 0) this.startReturnMarch(march);
+        else this.state.marches.delete(march.id);
+      }
+    }
+    this.pushBattleLog(msg);
+    this.broadcast('battle', { text: msg });
+  }
+
+  startReturnMarch(march) {
+    if (march.totalArmy <= 0) {
+      this.state.marches.delete(march.id);
+      return;
+    }
+    march.returning = true;
+    march.arrived = false;
+    const owner = this.state.players.get(march.ownerId);
+    if (owner) {
+      march.toX = owner.x;
+      march.toY = owner.y;
+    } else {
+      // Owner left — delete
+      this.state.marches.delete(march.id);
+    }
+  }
+
+  // Calculate effective combat power with rock-paper-scissors multipliers
+  // Each attacking type gets 1.5x vs the type it counters, 0.6x vs its predator
+  rpsPower(I, A, C, dI, dA, dC) {
+    const totalDef = dI + dA + dC;
+    if (totalDef === 0) return I + A + C;
+    // Weight each attacking type's effectiveness against the defender composition
+    const infEff = I * (1.5 * (dC / totalDef) + 0.6 * (dA / totalDef) + 1.0 * (dI / totalDef));
+    const arcEff = A * (1.5 * (dI / totalDef) + 0.6 * (dC / totalDef) + 1.0 * (dA / totalDef));
+    const cavEff = C * (1.5 * (dA / totalDef) + 0.6 * (dI / totalDef) + 1.0 * (dC / totalDef));
+    return infEff + arcEff + cavEff;
+  }
+
+  pushBattleLog(msg) {
+    this.state.battleLog.push(msg);
+    if (this.state.battleLog.length > 10) this.state.battleLog.shift();
+    this.broadcast('battleLog', this.state.battleLog.slice());
   }
 
   tickPlayer(p) {
@@ -345,7 +555,6 @@ export default class WorldRoom extends Room {
         p.x = p.targetX;
         p.y = p.targetY;
         p.isMoving = false;
-        if (p.attackTarget) this.resolveBattle(p);
       } else {
         p.x += (dx / dist) * step;
         p.y += (dy / dist) * step;
@@ -366,64 +575,6 @@ export default class WorldRoom extends Room {
     }
   }
 
-  resolveBattle(attacker) {
-    const targetId = attacker.attackTarget;
-    attacker.attackTarget = '';
-    if (!targetId) return;
-    let msg;
-    const def = this.state.players.get(targetId);
-    if (def) {
-      const atk = attacker.army, defA = def.army;
-      if (atk > defA) {
-        attacker.army -= Math.round(atk * 0.3);
-        const loot = Math.round(def.gold * 0.2);
-        def.army = 0;
-        def.gold -= loot;
-        attacker.gold += loot;
-        this.gainXP(attacker, 40);
-        // Crown drops if holder is zeroed
-        if (this.state.crownHolder === def.name) {
-          this.state.crownHolder = '';
-          this.state.crownClaimedAt = 0;
-          const crownMsg = `👑 ${def.name} lost The Crown in defeat! It is unclaimed!`;
-          this.state.battleLog.push(crownMsg);
-          if (this.state.battleLog.length > 10) this.state.battleLog.shift();
-          this.broadcast('battle', { text: crownMsg });
-        }
-        msg = `⚔️ ${attacker.name} defeated ${def.name}!`;
-      } else {
-        attacker.army = Math.max(0, Math.round(atk * 0.2));
-        def.army = Math.max(0, defA - Math.round(defA * 0.4));
-        this.gainXP(attacker, 15);
-        msg = `🛡️ ${def.name} defended!`;
-      }
-    } else {
-      const camp = this.state.camps.get(targetId);
-      if (!camp || !camp.alive) return;
-      const atk = attacker.army, defA = camp.army;
-      const tierSpec = CAMP_TIERS[(camp.tier || 1) - 1] || CAMP_TIERS[0];
-      if (atk > defA) {
-        attacker.army -= Math.round(atk * 0.25);
-        camp.alive = false;
-        camp.army = 0;
-        camp.respawnAt = Date.now() + tierSpec.respawn;
-        attacker.gold += camp.lootGold;
-        attacker.wood += camp.lootWood;
-        this.gainXP(attacker, Math.round(50 * tierSpec.xpMul));
-        msg = `⚔️ ${attacker.name} razed ${camp.name}! +${camp.lootGold}g +${camp.lootWood}w`;
-      } else {
-        attacker.army = Math.max(0, Math.round(atk * 0.3));
-        camp.army = Math.max(0, defA - Math.round(defA * 0.3));
-        this.gainXP(attacker, Math.round(15 * tierSpec.xpMul));
-        msg = `🛡️ ${camp.name} repelled ${attacker.name}!`;
-      }
-    }
-    this.state.battleLog.push(msg);
-    if (this.state.battleLog.length > 10) this.state.battleLog.shift();
-    this.broadcast('battle', { text: msg });
-    this.broadcast('battleLog', this.state.battleLog.slice());
-  }
-
   onJoin(c, o) {
     // Try loading saved player from DB; create new if first time
     const saved = loadPlayer(o.name);
@@ -436,6 +587,9 @@ export default class WorldRoom extends Room {
       p.food = saved.food;
       p.wood = saved.wood;
       p.army = saved.army;
+      p.infantry = saved.infantry || 0;
+      p.archers = saved.archers || 0;
+      p.cavalry = saved.cavalry || 0;
       p.xp = saved.xp;
       p.level = saved.level;
       p.castleLvl = saved.castleLvl;

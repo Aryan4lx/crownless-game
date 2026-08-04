@@ -15,6 +15,9 @@ db.exec(`
     food REAL DEFAULT 50,
     wood REAL DEFAULT 50,
     army INTEGER DEFAULT 0,
+    infantry INTEGER DEFAULT 0,
+    archers INTEGER DEFAULT 0,
+    cavalry INTEGER DEFAULT 0,
     xp REAL DEFAULT 0,
     level INTEGER DEFAULT 1,
     castle_lvl INTEGER DEFAULT 1,
@@ -31,14 +34,15 @@ db.exec(`
 `);
 
 const upsertStmt = db.prepare(`
-  INSERT INTO players (name, faction, gold, food, wood, army, xp, level,
+  INSERT INTO players (name, faction, gold, food, wood, army, infantry, archers, cavalry, xp, level,
     castle_lvl, barracks_lvl, smithy_lvl, farm_lvl, mine_lvl, research_lvl,
     x, y, created_at, last_seen)
-  VALUES (@name, @faction, @gold, @food, @wood, @army, @xp, @level,
+  VALUES (@name, @faction, @gold, @food, @wood, @army, @infantry, @archers, @cavalry, @xp, @level,
     @castle_lvl, @barracks_lvl, @smithy_lvl, @farm_lvl, @mine_lvl, @research_lvl,
     @x, @y, @created_at, @last_seen)
   ON CONFLICT(name) DO UPDATE SET
-    gold=@gold, food=@food, wood=@wood, army=@army, xp=@xp, level=@level,
+    gold=@gold, food=@food, wood=@wood, army=@army, infantry=@infantry, archers=@archers, cavalry=@cavalry,
+    xp=@xp, level=@level,
     castle_lvl=@castle_lvl, barracks_lvl=@barracks_lvl, smithy_lvl=@smithy_lvl,
     farm_lvl=@farm_lvl, mine_lvl=@mine_lvl, research_lvl=@research_lvl,
     x=@x, y=@y, last_seen=@last_seen
@@ -59,6 +63,9 @@ export function loadPlayer(name) {
     food: row.food,
     wood: row.wood,
     army: row.army,
+    infantry: row.infantry || 0,
+    archers: row.archers || 0,
+    cavalry: row.cavalry || 0,
     xp: row.xp,
     level: row.level,
     castleLvl: row.castle_lvl,
@@ -85,6 +92,9 @@ export function savePlayer(p) {
     food: Math.round(p.food),
     wood: Math.round(p.wood),
     army: p.army,
+    infantry: p.infantry || 0,
+    archers: p.archers || 0,
+    cavalry: p.cavalry || 0,
     xp: Math.round(p.xp),
     level: p.level,
     castle_lvl: p.castleLvl || 1,

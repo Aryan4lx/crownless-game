@@ -23,6 +23,9 @@ class Player extends Schema {
     this.farmLvl = 0;
     this.mineLvl = 0;
     this.army = 0;
+    this.infantry = 0;
+    this.archers = 0;
+    this.cavalry = 0;
     this.xp = 0;
     this.level = 1;
     this.createdAt = 0;
@@ -50,6 +53,9 @@ defineTypes(Player, {
   mineLvl: 'number',
   researchLvl: 'number',
   army: 'number',
+  infantry: 'number',
+  archers: 'number',
+  cavalry: 'number',
   xp: 'number',
   level: 'number',
   createdAt: 'number',
@@ -110,6 +116,56 @@ defineTypes(Camp, {
   respawnAt: 'number',
 });
 
+// ── March: army traveling on the map ─────────────────────────────────
+class March extends Schema {
+  constructor() {
+    super();
+    this.id = '';
+    this.ownerId = '';       // player sessionId
+    this.ownerName = '';
+    this.faction = '';
+    this.fromX = 0;
+    this.fromY = 0;
+    this.toX = 0;
+    this.toY = 0;
+    this.x = 0;              // current position
+    this.y = 0;
+    this.targetId = '';      // player sessionId or camp id
+    this.targetType = '';    // 'player' | 'camp' | 'return'
+    this.infantry = 0;
+    this.archers = 0;
+    this.cavalry = 0;
+    this.totalArmy = 0;
+    this.speed = 0;
+    this.arrived = false;
+    this.returning = false;
+    this.createdAt = 0;
+  }
+}
+
+defineTypes(March, {
+  id: 'string',
+  ownerId: 'string',
+  ownerName: 'string',
+  faction: 'string',
+  fromX: 'number',
+  fromY: 'number',
+  toX: 'number',
+  toY: 'number',
+  x: 'number',
+  y: 'number',
+  targetId: 'string',
+  targetType: 'string',
+  infantry: 'number',
+  archers: 'number',
+  cavalry: 'number',
+  totalArmy: 'number',
+  speed: 'number',
+  arrived: 'boolean',
+  returning: 'boolean',
+  createdAt: 'number',
+});
+
 // ── WorldState: the room state ──────────────────────────────────────
 class WorldState extends Schema {
   constructor() {
@@ -117,6 +173,7 @@ class WorldState extends Schema {
     this.players = new MapSchema();
     this.nodes = new MapSchema();
     this.camps = new MapSchema();
+    this.marches = new MapSchema();
     this.serverTime = 0;
     this.battleLog = [];
     this.crownHolder = '';
@@ -129,6 +186,7 @@ defineTypes(WorldState, {
   players: { map: Player },
   nodes: { map: ResourceNode },
   camps: { map: Camp },
+  marches: { map: March },
   serverTime: 'number',
   battleLog: ['string'],
   crownHolder: 'string',
@@ -136,4 +194,4 @@ defineTypes(WorldState, {
   crownActive: 'boolean',
 });
 
-export { Player, ResourceNode, Camp, WorldState };
+export { Player, ResourceNode, Camp, March, WorldState };

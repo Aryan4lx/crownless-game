@@ -53,8 +53,8 @@ export function sendChat(message: string) {
   room?.send('chat', { message });
 }
 
-export function sendTrain() {
-  room?.send('train');
+export function sendTrain(troopType: string = 'infantry') {
+  room?.send('train', { troopType });
 }
 
 export function claimCrown() {

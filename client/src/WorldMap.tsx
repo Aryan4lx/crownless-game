@@ -31,6 +31,8 @@ export default function WorldMap({ room }: { room: any }) {
   const [battleLog, setBattleLog] = useState<string[]>([]);
   const [ranks, setRanks] = useState<any[]>([]);
   const [buildProgress, setBuildProgress] = useState<any>(null);
+  const [showAttackModal, setShowAttackModal] = useState(false);
+  const [attackTroops, setAttackTroops] = useState({ infantry: 0, archers: 0, cavalry: 0 });
 
   // Start Phaser game
   useEffect(() => {
@@ -181,11 +183,69 @@ export default function WorldMap({ room }: { room: any }) {
               );
             })}
             {myPlayer?.barracksLvl >= 1 && (
-              <button className="action-btn" onClick={() => sendTrain()}>
-                <span className="action-icon">🛡️</span>
-                <span className="action-name">Train Troops</span>
-                <span className="action-cost">{20 * (1 + (myPlayer?.army || 0))}🌾</span>
-              </button>
+              <>
+                <div className="troop-row">
+                  <button className="action-btn troop-btn" onClick={() => sendTrain('infantry')}>
+                    <span className="action-icon">🛡️</span>
+                    <span className="action-name">Infantry</span>
+                    <span className="troop-count">{myPlayer.infantry || 0}</span>
+                  </button>
+                  <button className="action-btn troop-btn" onClick={() => sendTrain('archers')}>
+                    <span className="action-icon">🏹</span>
+                    <span className="action-name">Archers</span>
+                    <span className="troop-count">{myPlayer.archers || 0}</span>
+                  </button>
+                  <button className="action-btn troop-btn" onClick={() => sendTrain('cavalry')}>
+                    <span className="action-icon">🐎</span>
+                    <span className="action-name">Cavalry</span>
+                    <span className="troop-count">{myPlayer.cavalry || 0}</span>
+                  </button>
+                </div>
+                <div className="rps-hint">🛡️›🐎 ›🏹 ›🛡️</div>
+              </>
+            )}
+            {myPlayer?.barracksLvl >= 1 && (
+              <>
+                <button className="action-btn" onClick={() => setShowAttackModal(true)}>
+                  <span className="action-icon">⚔️</span>
+                  <span className="action-name">March Army</span>
+                </button>
+                {showAttackModal && (
+                  <div className="modal modal-attack">
+                    <div className="modal-header">
+                      <span className="modal-title">Select Troops to March</span>
+                      <button className="modal-close" onClick={() => setShowAttackModal(false)}>×</button>
+                    </div>
+                    <div className="modal-body">
+                      <div className="troop-row">
+                        <div className="troop-select">
+                          <span>🛡️ Infantry</span>
+                          <input type="number" min="0" max={myPlayer.infantry || 0} value={attackTroops.infantry} onChange={(e) => setAttackTroops({...attackTroops, infantry: Math.max(0, parseInt(e.target.value) || 0)})} />
+                        </div>
+                        <div className="troop-select">
+                          <span>🏹 Archers</span>
+                          <input type="number" min="0" max={myPlayer.archers || 0} value={attackTroops.archers} onChange={(e) => setAttackTroops({...attackTroops, archers: Math.max(0, parseInt(e.target.value) || 0)})} />
+                        </div>
+                        <div className="troop-select">
+                          <span>🐎 Cavalry</span>
+                          <input type="number" min="0" max={myPlayer.cavalry || 0} value={attackTroops.cavalry} onChange={(e) => setAttackTroops({...attackTroops, cavalry: Math.max(0, parseInt(e.target.value) || 0)})} />
+                        </div>
+                      </div>
+                      <div className="attack-actions">
+                        <button className="action-btn" onClick={() => setShowAttackModal(false)}>Cancel</button>
+                        <button className="action-btn" onClick={() => {
+                          if (attackTroops.infantry + attackTroops.archers + attackTroops.cavalry > 0) {
+                            setShowAttackModal(false);
+                            alert('Select a target to march to (players or camps).'); // TODO: target selection modal
+                          } else {
+                            alert('Select at least one troop type.');
+                          }
+                        }}>Launch March</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
             {myPlayer?.smithyLvl >= 1 && (
               <button className="action-btn" onClick={() => sendResearch()}>
