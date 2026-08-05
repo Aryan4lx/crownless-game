@@ -325,10 +325,16 @@ export default class WorldRoom extends Room {
     // Can only have 1 active march
     const hasMarch = Array.from(this.state.marches.values()).some(m => m.ownerId === c.sessionId && !m.returning);
     if (hasMarch) {
-      c.send('battle', { text: '⚔️ You already have a marching army. Wait for it to return.' });
+      c.send('battle', { text: 'You already have a marching army. Wait for it to return.' });
       return;
     }
     const fb = FACTION_BONUS[acc.faction] || FACTION_BONUS.sultan;
+    // Use selected troops, or all if not specified (backward compat)
+    const sel = d.troops || {};
+    const sendI = Math.min(sel.infantry || 0, acc.infantry);
+    const sendA = Math.min(sel.archers || 0, acc.archers);
+    const sendC = Math.min(sel.cavalry || 0, acc.cavalry);
+    if (sendI + sendA + sendC === 0) return;
     let targetX, targetY, targetType, targetId;
     const def = this.state.players.get(d.target);
     if (def) {
@@ -361,17 +367,17 @@ export default class WorldRoom extends Room {
     march.y = acc.y;
     march.targetId = targetId;
     march.targetType = targetType;
-    march.infantry = acc.infantry;
-    march.archers = acc.archers;
-    march.cavalry = acc.cavalry;
-    march.totalArmy = acc.army;
+    march.infantry = sendI;
+    march.archers = sendA;
+    march.cavalry = sendC;
+    march.totalArmy = sendI + sendA + sendC;
     march.speed = 8 * fb.march;
     march.createdAt = Date.now();
-    // Troops leave the castle
-    acc.infantry = 0;
-    acc.archers = 0;
-    acc.cavalry = 0;
-    acc.army = 0;
+    // Deduct only selected troops from castle
+    acc.infantry -= sendI;
+    acc.archers -= sendA;
+    acc.cavalry -= sendC;
+    acc.army = acc.infantry + acc.archers + acc.cavalry;
     this.state.marches.set(march.id, march);
   }
 

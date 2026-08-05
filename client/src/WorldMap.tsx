@@ -6,10 +6,10 @@ import { sendBuild, sendTrain, sendResearch, sendChat, leaveWorld } from './netw
 import './WorldMap.css';
 
 const BUILDINGS = [
-  { kind: 'farm', icon: '🌾', label: 'Farm', gold: 80, wood: 0 },
-  { kind: 'mine', icon: '⛏️', label: 'Mine', gold: 120, wood: 0 },
-  { kind: 'barracks', icon: '⚔️', label: 'Barracks', gold: 100, wood: 50 },
-  { kind: 'smithy', icon: '🔨', label: 'Smithy', gold: 150, wood: 100 },
+  { kind: 'farm', icon: '🌾', label: 'Farm', gold: 80, wood: 0, duration: 4000 },
+  { kind: 'mine', icon: '⛏️', label: 'Mine', gold: 120, wood: 0, duration: 5500 },
+  { kind: 'barracks', icon: '⚔️', label: 'Barracks', gold: 100, wood: 50, duration: 5000 },
+  { kind: 'smithy', icon: '🔨', label: 'Smithy', gold: 150, wood: 100, duration: 6000 },
 ];
 
 const LEVEL_FIELD: Record<string, string> = {
@@ -33,6 +33,11 @@ export default function WorldMap({ room }: { room: any }) {
   const [buildProgress, setBuildProgress] = useState<any>(null);
   const [showAttackModal, setShowAttackModal] = useState(false);
   const [attackTroops, setAttackTroops] = useState({ infantry: 0, archers: 0, cavalry: 0 });
+  const [showAttackModal, setShowAttackModal] = useState(false);
+  const [attackTroops, setAttackTroops] = useState({ infantry: 0, archers: 0, cavalry: 0 });
+  const [showAttackModal2, setShowAttackModal2] = useState(false);
+  const [targetMode, setTargetMode] = useState(false); // when true, next map click = attack target
+  void targetMode; // read indirectly via registry
 
   // Start Phaser game
   useEffect(() => {
@@ -57,6 +62,29 @@ export default function WorldMap({ room }: { room: any }) {
     game.registry.set('room', room);
     game.registry.set('myId', room.sessionId);
     gameRef.current = game;
+
+    // React -> Phaser: set targetMode flag so next map click = attack
+    game.registry.set('targetMode', false);
+    game.registry.events.on('set-target-mode', (val: boolean) => {
+      game.registry.set('targetMode', val);
+    });
+    // Phaser -> React: target selected, send attack
+    game.registry.events.on('target-selected', (data: any) => {
+      setTargetMode(false);
+      if (data && data.targetId && data.troops) {
+        const t = data.troops;
+        const total = (t.infantry || 0) + (t.archers || 0) + (t.cavalry || 0);
+        if (total > 0) {
+          room.send('attack', { target: data.targetId, troops: t });
+        }
+      }
+    });
+    // Phaser -> React: camp clicked in normal mode, show info
+    game.registry.events.on('camp-info', (camp: any) => {
+      const stars = '*'.repeat(camp.tier || 1);
+      setBattleMsg(`${stars} ${camp.name} | Army: ${camp.army} | Loot: ${camp.lootGold}g ${camp.lootWood}w`);
+      setTimeout(() => setBattleMsg(''), 5000);
+    });
 
     return () => {
       game.destroy(true);
@@ -85,6 +113,17 @@ export default function WorldMap({ room }: { room: any }) {
     });
     room.onMessage('chat', (m: any) => {
       setChatMessages((prev: any[]) => [...prev, m]);
+    });
+    room.onMessage('buildStart', (m: any) => {
+      setBattleMsg(`Building ${m.kind} Lv${m.lvl}...`);
+      setTimeout(() => setBattleMsg(''), 4000);
+    });
+    room.onMessage('built', (m: any) => {
+      setBattleMsg(`${m.kind} upgraded to Lv${m.lvl}!`);
+      setTimeout(() => setBattleMsg(''), 4000);
+    });
+    room.onMessage('train', (_m: any) => {
+      // Silent - troop count updates via state sync
     });
 
     // Force HUD re-render every 300ms to reflect state changes
@@ -231,15 +270,21 @@ export default function WorldMap({ room }: { room: any }) {
                           <input type="number" min="0" max={myPlayer.cavalry || 0} value={attackTroops.cavalry} onChange={(e) => setAttackTroops({...attackTroops, cavalry: Math.max(0, parseInt(e.target.value) || 0)})} />
                         </div>
                       </div>
-                      <div className="attack-actions">
+                    <div className="attack-actions">
                         <button className="action-btn" onClick={() => setShowAttackModal(false)}>Cancel</button>
                         <button className="action-btn" onClick={() => {
-                          if (attackTroops.infantry + attackTroops.archers + attackTroops.cavalry > 0) {
-                            setShowAttackModal(false);
-                            alert('Select a target to march to (players or camps).'); // TODO: target selection modal
-                          } else {
-                            alert('Select at least one troop type.');
+                          const total = attackTroops.infantry + attackTroops.archers + attackTroops.cavalry;
+                          if (total === 0) {
+                            setBattleMsg('Select at least one troop type.');
+                            setTimeout(() => setBattleMsg(''), 3000);
+                            return;
                           }
+                          setShowAttackModal(false);
+                          setTargetMode(true);
+                          gameRef.current?.registry.set('attackTroops', attackTroops);
+                          gameRef.current?.registry.events.emit('set-target-mode', true);
+                          setBattleMsg('Click a camp or castle to march.');
+                          setTimeout(() => setBattleMsg(''), 5000);
                         }}>Launch March</button>
                       </div>
                     </div>
@@ -253,14 +298,24 @@ export default function WorldMap({ room }: { room: any }) {
                 <span className="action-name">Research Lv{myPlayer?.researchLvl || 0}</span>
               </button>
             )}
-            {buildProgress && (
-              <div className="build-progress">
-                <div className="build-progress-label">Building: {buildProgress.kind}</div>
-                <div className="build-progress-track">
-                  <div className="build-progress-fill" style={{ width: `${(buildProgress.pct || 0) * 100}%` }} />
+            {(() => {
+              // buildProgress is an array of {pid, kind, finish} from server
+              const myBuild = Array.isArray(buildProgress)
+                ? buildProgress.find((b: any) => b.pid === myId)
+                : null;
+              if (!myBuild) return null;
+              const remaining = Math.max(0, myBuild.finish - Date.now());
+              const total = BUILDINGS.find(b => b.kind === myBuild.kind)?.duration || 5000;
+              const pct = 1 - (remaining / total);
+              return (
+                <div className="build-progress">
+                  <div className="build-progress-label">Building: {myBuild.kind}</div>
+                  <div className="build-progress-track">
+                    <div className="build-progress-fill" style={{ width: `${Math.min(100, pct * 100)}%` }} />
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </div>
       </div>
