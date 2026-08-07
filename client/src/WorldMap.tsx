@@ -33,9 +33,6 @@ export default function WorldMap({ room }: { room: any }) {
   const [buildProgress, setBuildProgress] = useState<any>(null);
   const [showAttackModal, setShowAttackModal] = useState(false);
   const [attackTroops, setAttackTroops] = useState({ infantry: 0, archers: 0, cavalry: 0 });
-  const [showAttackModal, setShowAttackModal] = useState(false);
-  const [attackTroops, setAttackTroops] = useState({ infantry: 0, archers: 0, cavalry: 0 });
-  const [showAttackModal2, setShowAttackModal2] = useState(false);
   const [targetMode, setTargetMode] = useState(false); // when true, next map click = attack target
   void targetMode; // read indirectly via registry
 

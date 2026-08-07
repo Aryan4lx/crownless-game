@@ -59,6 +59,13 @@ export default class WorldScene extends Phaser.Scene {
       this.handleMapClick(worldPoint.x, worldPoint.y);
     });
 
+    // Zoom with scroll wheel
+    this.input.on('wheel', (_pointer: Phaser.Input.Pointer, _ox: number, _oy: number, delta: number) => {
+      const cam = this.cameras.main;
+      const newZoom = Phaser.Math.Clamp(cam.zoom - delta * 0.001, 0.4, 2.5);
+      cam.setZoom(newZoom);
+    });
+
     // Sync state from room
     this.syncState();
 
@@ -152,40 +159,45 @@ export default class WorldScene extends Phaser.Scene {
   }
 
   handleMapClick(worldX: number, worldY: number) {
-    // Check camp click
+    const targetMode = this.registry.get('targetMode') || false;
+
+    if (targetMode) {
+      let clicked = false;
+      this.room?.state?.camps?.forEach((camp: any, id: string) => {
+        if (!camp.alive || clicked) return;
+        if (Math.hypot(camp.x - worldX, camp.y - worldY) < 40) {
+          clicked = true;
+          this.registry.set('targetMode', false);
+          this.registry.events.emit('target-selected', { targetId: id, troops: this.registry.get('attackTroops') });
+        }
+      });
+      this.room?.state?.players?.forEach((p: any, id: string) => {
+        if (id === this.myId || clicked) return;
+        if (Math.hypot(p.x - worldX, p.y - worldY) < 35) {
+          clicked = true;
+          this.registry.set('targetMode', false);
+          this.registry.events.emit('target-selected', { targetId: id, troops: this.registry.get('attackTroops') });
+        }
+      });
+      if (!clicked) {
+        this.registry.set('targetMode', false);
+        this.registry.events.emit('target-selected', null);
+      }
+      return;
+    }
+
+    // Normal mode: click camp for info, empty = move
     let clickedCamp = false;
     this.room?.state?.camps?.forEach((camp: any, id: string) => {
-      if (!camp.alive) return;
+      if (!camp.alive || clickedCamp) return;
       if (Math.hypot(camp.x - worldX, camp.y - worldY) < 40) {
         clickedCamp = true;
-        const stars = '★'.repeat(camp.tier || 1);
-        const attack = window.confirm(
-          `${stars} Attack ${camp.name}?\nArmy: ${camp.army} | Loot: 🪙${camp.lootGold} 🪵${camp.lootWood}\nYour army: ${this.getMyArmy()}`
-        );
-        if (attack) this.room.send('attack', { target: id });
+        this.registry.events.emit('camp-info', { id, name: camp.name, tier: camp.tier, army: camp.army, lootGold: camp.lootGold, lootWood: camp.lootWood });
       }
     });
     if (clickedCamp) return;
 
-    // Check player click (attack)
-    let clickedPlayer = false;
-    this.room?.state?.players?.forEach((p: any, id: string) => {
-      if (id === this.myId) return;
-      if (Math.hypot(p.x - worldX, p.y - worldY) < 35) {
-        clickedPlayer = true;
-        const attack = window.confirm(`⚔️ Attack ${p.name}? (Your army: ${this.getMyArmy()})`);
-        if (attack) this.room.send('attack', { target: id });
-      }
-    });
-    if (clickedPlayer) return;
-
-    // Otherwise move
     this.room?.send('move', { x: Math.round(worldX), y: Math.round(worldY) });
-  }
-
-  getMyArmy(): number {
-    const me = this.room?.state?.players?.get(this.myId);
-    return me?.army ?? 0;
   }
 
   syncState() {
